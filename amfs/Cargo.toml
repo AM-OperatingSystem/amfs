@@ -1,0 +1,26 @@
+[package]
+name = "amfs"
+version = "0.1.0"
+edition = "2018"
+
+[lib]
+name = "amfs"
+path = "src/lib.rs"
+
+[dependencies]
+bitvec = "0.22.3"
+crc32fast="1.2.1"
+rand = "0.8.4"
+strum = "0.21"
+strum_macros = "0.21"
+log = "0.4.14"
+log4rs="1.0.0"
+derivative = "2.2.0"
+more-asserts="0.2.1"
+serial_test = "0.5.1"
+ntest = "0.7.3"
+amfs-macros = { path = "../amfs-macros" }
+amos-std = { path = "../../amos-std" }
+
+[dev-dependencies]
+itertools = "0.10.1"
