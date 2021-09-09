@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [ develop ]
+  pull_request:
+    branches: [ develop ]
+
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    defaults:
+      run:
+        working-directory: amfs
+    
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          path: amfs
+
+      - uses: actions/checkout@v2
+        with:
+          repository: 'AM-OperatingSystem/amos-std'
+          path: amos-std
+
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          override: true
+          components: clippy
+      
+      - run: cargo clippy
+      - run: cargo test
+      - run: cargo build --release --all-features
