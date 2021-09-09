@@ -7,6 +7,8 @@ use amos_std::AMResult;
 use std::rc::Rc;
 use std::cell::RefCell;
 
+use std::convert::TryInto;
+
 use crate::BLOCK_SIZE;
 
 use std::io::{Read,Write,Seek,SeekFrom};
@@ -20,7 +22,13 @@ pub struct DiskFile {
 impl DiskFile {
     /// Creates a disk object using a filename.
     pub fn open(f: &str) -> AMResult<super::Disk> {
-        let file = OpenOptions::new().read(true).write(true).open(f)?;
+        let file = if std::path::Path::new(f).exists() {
+            OpenOptions::new().read(true).write(true).open(f)?
+        } else {
+            let res = OpenOptions::new().read(true).write(true).create(true).open(f)?;
+            res.set_len((100*BLOCK_SIZE).try_into().or(Err(0))?)?;
+            res
+        };
         let size = file.metadata()?.len();
         Ok(super::Disk{0:Rc::new(RefCell::new(DiskFile{f:file,size}))})
     }
