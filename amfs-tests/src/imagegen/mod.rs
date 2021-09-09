@@ -5,6 +5,7 @@ use std::sync::Once;
 
 static mut CHECKSUMS: Vec<String> = Vec::new();
 static INIT: Once = Once::new();
+
 pub fn get_checksums() -> &'static Vec<String> {
     unsafe {
         INIT.call_once(|| {
