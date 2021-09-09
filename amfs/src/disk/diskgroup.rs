@@ -13,14 +13,6 @@ pub struct DiskGroup {
 }
 
 impl DiskGroup {
-    /// Creates an empty disk group
-    pub fn new() -> DiskGroup {
-        DiskGroup{
-            geo: Geometry::new(),
-            disks: Vec::new(),
-            allocs: Vec::new(),
-        }
-    }
     /// Creates a disk group containing a single disk
     pub fn single(g: Geometry, d: Disk, a: Allocator) -> DiskGroup {
         DiskGroup{
@@ -77,11 +69,5 @@ impl DiskGroup {
                 _ => unimplemented!(),
             }
         )
-    }
-}
-
-impl Default for DiskGroup {
-    fn default() -> Self {
-        Self::new()
     }
 }
