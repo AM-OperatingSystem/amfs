@@ -5,6 +5,7 @@ use proc_macro2::{Ident, Span};
 #[macro_use]
 extern crate quote;
 
+#[cfg(not(tarpaulin_include))]
 #[proc_macro]
 pub fn generate_image(input: TokenStream) -> TokenStream {
     let item: syn::LitInt = syn::parse(input).expect("failed to parse input");
@@ -31,6 +32,7 @@ pub fn generate_image(input: TokenStream) -> TokenStream {
     output.into()
 }
 
+#[cfg(not(tarpaulin_include))]
 #[proc_macro]
 pub fn load_image(input: TokenStream) -> TokenStream {
     let item: syn::LitInt = syn::parse(input).expect("failed to parse input");
@@ -42,7 +44,7 @@ pub fn load_image(input: TokenStream) -> TokenStream {
     output.into()
 }
 
-
+#[cfg(not(tarpaulin_include))]
 #[proc_macro]
 pub fn assert_or_err(input: TokenStream) -> TokenStream {
     let params = syn::parse_macro_input!(input with syn::punctuated::Punctuated<syn::Expr, syn::Token![,]>::parse_separated_nonempty);
@@ -57,6 +59,7 @@ pub fn assert_or_err(input: TokenStream) -> TokenStream {
     output.into()
 }
 
+#[cfg(not(tarpaulin_include))]
 #[proc_macro_attribute]
 pub fn test_fs(_: TokenStream, item: TokenStream) -> TokenStream {
     let input_fn = syn::parse_macro_input!(item as syn::ItemFn);
