@@ -71,7 +71,6 @@ impl ObjectSet {
                 let mut frags = Vec::new();
                 loop {
                     if u64::from_le_bytes(blk[pos..pos+8].try_into().or(Err(0))?) == 0 {
-                        pos+=8;
                         break;
                     }
                     frags.push(Fragment::from_bytes(blk[pos..pos+32].try_into().or(Err(0))?));
@@ -93,7 +92,7 @@ impl ObjectSet {
             ptr = header.next;
             let mut pos = std::mem::size_of::<ObjectListHeader>();
             let idx = header.start_idx;
-            for i in idx..idx+u64::from(header.n_entries) {
+            for i in idx..idx+header.n_entries {
                 let mut frags = Vec::new();
                 loop {
                     if u64::from_le_bytes(blk[pos..pos+8].try_into().or(Err(0))?) == 0 {
@@ -110,7 +109,7 @@ impl ObjectSet {
     }
     /// Updates or inserts an object
     pub fn set_object(&mut self, id: u64, obj: Object) -> AMResult<()>{
-        let mut ptr_prev = AMPointerGlobal::null();
+        let mut _ptr_prev = AMPointerGlobal::null();
         let mut ptr = self.ptr;
         if ptr.is_null() {
             unimplemented!();
@@ -132,7 +131,7 @@ impl ObjectSet {
                     }
                     idx+=1;
                 }
-                if id == header.start_idx+u64::from(header.n_entries) {
+                if id == header.start_idx+header.n_entries {
                     header.n_entries+=1;
                     let obj_size = std::mem::size_of::<Fragment>()*obj.frags.len() + 4;
                     if pos + obj_size < BLOCK_SIZE {
@@ -142,7 +141,7 @@ impl ObjectSet {
                         unimplemented!();
                     }
                 } else {
-                    assert_lt!(id,header.start_idx+u64::from(header.n_entries));
+                    assert_lt!(id,header.start_idx+header.n_entries);
                     unimplemented!();
                 }
                 for frag in &obj.frags {
@@ -155,9 +154,9 @@ impl ObjectSet {
                 ptr.update(&self.dgs)?;
                 break;
             } else {
-                println!("{}-{} {}",header.start_idx,header.start_idx+u64::from(header.n_entries),id);
+                println!("{}-{} {}",header.start_idx,header.start_idx+header.n_entries,id);
             }
-            ptr_prev = ptr;
+            _ptr_prev = ptr;
             ptr = header.next;
         }
         Ok(())

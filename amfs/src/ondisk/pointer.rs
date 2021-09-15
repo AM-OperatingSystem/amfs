@@ -75,7 +75,7 @@ impl AMPointerGlobal {
         } else if start%BLOCK_SIZE == 0 && size == BLOCK_SIZE {
             match dgs[self.geometry() as usize].as_ref().ok_or(0)?.geo.flavor() {
                 GeometryFlavor::Single => {
-                    dgs[self.geometry() as usize].as_ref().ok_or(0)?.get_disk(0).read_at(self.loc(),data)
+                    dgs[self.geometry() as usize].as_ref().ok_or(0)?.get_disk(0).read_at((usize::try_from(self.loc())?+start/BLOCK_SIZE).try_into()?,data)
                 },
                 _ => unimplemented!(),
             }

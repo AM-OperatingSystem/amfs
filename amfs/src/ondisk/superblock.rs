@@ -57,6 +57,8 @@ impl Superblock {
         Ok(res)
     }
     /// Reads a superblock from disk.
+    /// # Safety
+    /// This function disables safety checks on the superblock. You must be able to handle invalid headers.
     pub unsafe fn read_unchecked(mut d: Disk, ptr: AMPointerLocal) -> AMResult<Superblock> {
         let mut res: Superblock = Superblock::new(0);
         d.read_at(ptr.loc(), &mut res)?;

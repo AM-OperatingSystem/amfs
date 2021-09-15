@@ -1,3 +1,5 @@
+#![allow(clippy::all)]
+
 use amfs::*;
 
 use amfs::{BLOCK_SIZE,SIGNATURE};
