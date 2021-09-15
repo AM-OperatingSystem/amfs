@@ -40,7 +40,7 @@ impl AMFeatures {
         ].iter().map(|x| *x as usize).collect::<BTreeSet<usize>>()
     }
     /// Converts a bit array to a set of features
-    pub fn bit2set(map: BitArr!(for 2048)) -> BTreeSet<AMFeatures> {
+    pub fn bit2set(map: &BitArr!(for 2048)) -> BTreeSet<AMFeatures> {
         let mut res = BTreeSet::new();
         for i in AMFeatures::iter() {
             if *map.get(i as usize).unwrap() {

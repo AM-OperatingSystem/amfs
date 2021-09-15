@@ -1,6 +1,7 @@
 use crc32fast::Hasher;
 use crate::{Disk,DiskGroup,GeometryFlavor};
 use amos_std::AMResult;
+use std::convert::{TryFrom,TryInto};
 use crate::BLOCK_SIZE;
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -50,16 +51,50 @@ impl AMPointerGlobal {
         assert!(!self.is_null());
         self.0.location
     }
+    /// Gets the device the pointer is addressing
+    pub fn dev(&self) -> u8 {
+        assert!(!self.is_null());
+        self.0.device
+    }
+    /// Gets the device the pointer is addressing
+    pub fn geo(&self) -> u8 {
+        assert!(!self.is_null());
+        self.0.geometry
+    }
     /// Reads from the referenced location
-    pub fn read(self, start: usize, size: usize, dgs: &[Option<DiskGroup>], buf: &mut [u8]) -> AMResult<usize> {
-        assert_eq!(self.0.len,1);
-        assert_eq!(start,0);
-        assert_eq!(size,BLOCK_SIZE);
-        match dgs[self.geometry() as usize].as_ref().ok_or(0)?.geo.flavor() {
-            GeometryFlavor::Single => {
-                dgs[self.geometry() as usize].as_ref().ok_or(0)?.get_disk(0).read_at(self.loc(),buf)
-            },
-            _ => unimplemented!(),
+    pub fn read(self, start: usize, size: usize, dgs: &[Option<DiskGroup>], data: &mut [u8]) -> AMResult<usize> {
+        println!("Read: {},{}+{}",self.loc(),start,size);
+        //Single whole block writes are atomic
+        if start==0 && size==BLOCK_SIZE {
+            match dgs[self.geometry() as usize].as_ref().ok_or(0)?.geo.flavor() {
+                GeometryFlavor::Single => {
+                    dgs[self.geometry() as usize].as_ref().ok_or(0)?.get_disk(0).read_at(self.loc(),data)
+                },
+                _ => unimplemented!(),
+            }
+        } else if start%BLOCK_SIZE == 0 && size == BLOCK_SIZE {
+            match dgs[self.geometry() as usize].as_ref().ok_or(0)?.geo.flavor() {
+                GeometryFlavor::Single => {
+                    dgs[self.geometry() as usize].as_ref().ok_or(0)?.get_disk(0).read_at(self.loc(),data)
+                },
+                _ => unimplemented!(),
+            }
+        } else {
+            let mut buf = [0u8;BLOCK_SIZE];
+            let start_block = start/BLOCK_SIZE;
+            let start_offs = start%BLOCK_SIZE;
+            let end_block = (start+size) / BLOCK_SIZE;
+            let end_offs = (start+size) % BLOCK_SIZE;
+            self.read(start_block*BLOCK_SIZE,BLOCK_SIZE,dgs,&mut buf)?;
+            if start_block==end_block {
+                let mut buf = [0u8;BLOCK_SIZE];
+                self.read(start_block*BLOCK_SIZE,BLOCK_SIZE,dgs,&mut buf)?;
+                data.clone_from_slice(&buf[start_offs..end_offs]);
+                Ok(size)
+            } else {
+                unimplemented!();
+            }
+            
         }
     }
     /// Reads from the referenced location
@@ -70,15 +105,38 @@ impl AMPointerGlobal {
         Ok(res)
     }
     /// Writes to the referenced location
-    pub fn write(self, start: usize, size: usize, dgs: &[Option<DiskGroup>], buf: &[u8]) -> AMResult<usize> {
-        assert_eq!(self.0.len,1);
-        assert_eq!(start,0);
-        assert_eq!(size,BLOCK_SIZE);
-        match dgs[self.geometry() as usize].as_ref().ok_or(0)?.geo.flavor() {
-            GeometryFlavor::Single => {
-                dgs[self.geometry() as usize].as_ref().ok_or(0)?.get_disk(0).write_at(self.loc(),buf)
-            },
-            _ => unimplemented!(),
+    pub fn write(self, start: usize, size: usize, dgs: &[Option<DiskGroup>], data: &[u8]) -> AMResult<usize> {
+        println!("Write: {},{}+{}",self.loc(),start,size);
+        //Single whole block writes are atomic
+        if start==0 && size==BLOCK_SIZE {
+            match dgs[self.geometry() as usize].as_ref().ok_or(0)?.geo.flavor() {
+                GeometryFlavor::Single => {
+                    dgs[self.geometry() as usize].as_ref().ok_or(0)?.get_disk(0).write_at(self.loc(),data)
+                },
+                _ => unimplemented!(),
+            }
+        } else if start%BLOCK_SIZE == 0 && size == BLOCK_SIZE {
+            match dgs[self.geometry() as usize].as_ref().ok_or(0)?.geo.flavor() {
+                GeometryFlavor::Single => {
+                    dgs[self.geometry() as usize].as_ref().ok_or(0)?.get_disk(0).write_at((usize::try_from(self.loc())?+start/BLOCK_SIZE).try_into()?,data)
+                },
+                _ => unimplemented!(),
+            }
+        } else {
+            let mut buf = [0u8;BLOCK_SIZE];
+            let start_block = start/BLOCK_SIZE;
+            let start_offs = start%BLOCK_SIZE;
+            let end_block = (start+size) / BLOCK_SIZE;
+            let end_offs = (start+size) % BLOCK_SIZE;
+            self.read(start_block*BLOCK_SIZE,BLOCK_SIZE,dgs,&mut buf)?;
+            if start_block==end_block {
+                buf[start_offs..end_offs].clone_from_slice(data);
+                self.write(start_block*BLOCK_SIZE,BLOCK_SIZE,dgs,&buf)?;
+                Ok(size)
+            } else {
+                unimplemented!();
+            }
+            
         }
     }
     /// Creates a pointer from an array of bytes

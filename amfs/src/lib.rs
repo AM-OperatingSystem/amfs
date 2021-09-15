@@ -53,3 +53,17 @@ pub mod mkfs;
 
 /// Documentation-only module
 pub mod doc;
+
+/// Converts any object into a u8 slice
+pub unsafe fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] {
+    ::std::slice::from_raw_parts(
+        (p as *const T) as *const u8,
+        ::std::mem::size_of::<T>(),
+    )
+}
+
+/// Converts a u8 slice into an object
+pub unsafe fn u8_slice_as_any<T: Sized>(p: &[u8]) -> &T {
+    assert!(p.len()>=::std::mem::size_of::<T>());
+    &*((p.as_ptr() as *const u8) as *const T)
+}

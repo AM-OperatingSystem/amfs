@@ -1,6 +1,6 @@
 use std::sync::{Arc,RwLock};
 use std::collections::{BTreeSet,BTreeMap};
-use crate::{Superblock,Disk,DiskGroup,Allocator,FSGroup,ObjectSet};
+use crate::{Superblock,Disk,DiskGroup,Allocator,FSGroup,ObjectSet,AMPointerGlobal};
 use amos_std::AMResult;
 use amos_std::error::AMErrorFS;
 use std::convert::TryInto;
@@ -107,13 +107,34 @@ impl AMFS {
         }
         Ok(())
     }
+    /// Allocates a number of blocks in the filesystem
+    pub fn alloc(&self, n: u64) -> AMResult<Option<AMPointerGlobal>> {
+        Ok(Some(self.dgs[0].clone().ok_or(0)?.alloc(n)?))
+    }
     /// Gets the filesystem's object tree
     pub fn get_objects(&self) -> AMResult<ObjectSet> {
         let obj_ptr = self.get_root_group()?.get_obj_ptr();
-        ObjectSet::new(obj_ptr,self.dgs.clone())
+        ObjectSet::read(self.dgs.clone(),obj_ptr)
     }
-    /// Gets the object corresponding to a given ID
-    pub fn read_object(&self, id: u64) -> AMResult<Vec<u8>> {
-        self.get_objects()?.get_object(id)?.ok_or(0)?.read()
+    /// Reads the object corresponding to a given ID
+    pub fn read_object(&self, id: u64,start:u64,data:&mut [u8]) -> AMResult<u64> {
+        self.get_objects()?.get_object(id)?.ok_or(0)?.read(start,data,&self.dgs)
+    }
+    /// Writes to the object corresponding to a given ID
+    pub fn write_object(&self, id: u64,start:u64,data:&[u8]) -> AMResult<u64> {
+        self.get_objects()?.get_object(id)?.ok_or(0)?.write(start,data,&self.dgs)
+    }
+    /// Writes to the object corresponding to a given ID
+    pub fn size_object(&self, id: u64) -> AMResult<u64> {
+        self.get_objects()?.get_object(id)?.ok_or(0)?.size()
+    }
+    /// Syncs the disks
+    pub fn sync(&mut self) -> AMResult<()> {
+        for i in &mut self.dgs {
+            if let Some(dg) = i {
+                dg.sync()?
+            }
+        }
+        Ok(())
     }
 }

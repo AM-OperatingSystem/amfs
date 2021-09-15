@@ -56,6 +56,12 @@ impl Superblock {
         assert_or_err!(res.devid!=0,AMErrorFS::DiskID);
         Ok(res)
     }
+    /// Reads a superblock from disk.
+    pub unsafe fn read_unchecked(mut d: Disk, ptr: AMPointerLocal) -> AMResult<Superblock> {
+        let mut res: Superblock = Superblock::new(0);
+        d.read_at(ptr.loc(), &mut res)?;
+        Ok(res)
+    }
     /// Writes a superblock to disk.
     pub fn write(&mut self, mut d: Disk, ptr: AMPointerLocal) -> AMResult<AMPointerLocal> {
         self.update_checksum();
@@ -88,6 +94,26 @@ impl Superblock {
     /// Getter for signature
     pub fn signature(&self) -> &[u8;8] {
         &self.signature
+    }
+    /// Getter for features
+    pub fn features(&self) -> &BitArr!(for 2048) {
+        &self.features
+    }
+    /// Getter for checksum
+    pub fn checksum(&self) -> u32 {
+        self.checksum
+    }
+    /// Getter for checksum
+    pub fn geometries(&self, i:usize) -> AMPointerLocal {
+        self.geometries[i]
+    }
+    /// Getter for the index of the latest root node
+    pub fn latest_root(&self) -> u8 {
+        self.latest_root
+    }
+    /// Getter for a specific root node
+    pub fn rootnodes(&self, i:usize) -> AMPointerGlobal {
+        self.rootnodes[i]
     }
     /// Fetches the geometry object for the nth geometry spec.
     pub fn get_geometry(&self, d: Disk,  n: u8) -> AMResult<Geometry> {

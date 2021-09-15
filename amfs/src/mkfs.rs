@@ -41,8 +41,9 @@ pub fn mkfs_single(mut d: Disk) -> AMResult<()> {
         root_group.objects = dg.alloc(1)?;
         let mut amap = BTreeMap::new();
         amap.insert(devid,free);
+        let mut root_ptr = dg.alloc(1)?;
         root_group.write_allocators(&mut [Some(dg.clone())], &mut amap)?;
-        let root_ptr = root_group.write(&[Some(dg)],0)?;
+        root_group.write(&[Some(dg)],&mut root_ptr)?;
         for sb in &mut sbs {
             sb.rootnodes[0] = root_ptr;
             sb.latest_root = 0;

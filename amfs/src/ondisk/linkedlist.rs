@@ -1,23 +1,15 @@
 use crate::{AMPointerGlobal,DiskGroup};
+use crate::{u8_slice_as_any,any_as_u8_slice};
 use amos_std::AMResult;
 use crate::BLOCK_SIZE;
 
-unsafe fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] {
-    ::std::slice::from_raw_parts(
-        (p as *const T) as *const u8,
-        ::std::mem::size_of::<T>(),
-    )
-}
-
-unsafe fn u8_slice_as_any<T: Sized>(p: &[u8]) -> &T {
-    assert!(p.len()>=::std::mem::size_of::<T>());
-    &*((p.as_ptr() as *const u8) as *const T)
-}
+use std::convert::TryFrom;
 
 #[repr(C)]
 pub(crate) struct LLGHeader {
     next: AMPointerGlobal,
-    count: u16,
+    count: u64,
+    _padding: u64,
 }
 
 /// Trait for writing a collection of items to disk, using global pointers.
@@ -46,7 +38,7 @@ impl<T: Copy> LinkedListGlobal<Vec<T>> for Vec<T> {
                 p=hdr.next;
                 count = hdr.count;
             }
-            for i in 0..(count as usize) {
+            for i in 0..usize::try_from(count)? {
                 unsafe {
                     let addr = std::mem::size_of::<LLGHeader>() + std::mem::size_of::<T>()*i;
                     let ent = u8_slice_as_any::<T>(&buf[addr..]);
@@ -64,7 +56,7 @@ impl<T: Copy> LinkedListGlobal<Vec<T>> for Vec<T> {
         
         let mut blockptrs = (0..blks).map(|_| dg.as_mut().ok_or(0)?.alloc(1) ).collect::<AMResult<Vec<AMPointerGlobal>>>()?;
         blockptrs.push(AMPointerGlobal::null());
-        let mut headers : Vec<LLGHeader> = (0..blks).map(|i| LLGHeader{count:0,next:blockptrs[i+1]}).collect();
+        let mut headers : Vec<LLGHeader> = (0..blks).map(|i| LLGHeader{count:0,_padding:0,next:blockptrs[i+1]}).collect();
 
         let mut it = self.iter();
 
@@ -119,7 +111,7 @@ impl<T: Copy> LinkedListGlobal<Vec<T>> for Vec<T> {
         
         assert_eq!(blockptrs.len(),blks);
         blockptrs.push(AMPointerGlobal::null());
-        let mut headers : Vec<LLGHeader> = (0..blks).map(|i| LLGHeader{count:0,next:blockptrs[i+1]}).collect();
+        let mut headers : Vec<LLGHeader> = (0..blks).map(|i| LLGHeader{count:0,_padding:0,next:blockptrs[i+1]}).collect();
 
         let mut it = self.iter();
 
@@ -195,4 +187,10 @@ fn rw_test_global_base() {
     let a2 = <Vec<u32> as LinkedListGlobal<Vec<u32>>>::read(&vec![Some(dg)],ptr).unwrap();
 
     assert_eq!(a,a2);
+}
+
+#[test]
+fn size_test() {
+    use std::mem;
+    assert_eq!(mem::size_of::<LLGHeader>(), 32);
 }

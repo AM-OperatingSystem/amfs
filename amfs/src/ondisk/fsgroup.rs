@@ -9,13 +9,14 @@ use amos_std::AMResult;
 use crate::BLOCK_SIZE;
 
 #[repr(packed)]
+#[derive(Debug,Clone,Copy)]
 /// A group of filesystems.
 pub struct FSGroup {
     alloc: AMPointerGlobal,
-    _journal: AMPointerGlobal,
+    journal: AMPointerGlobal,
     /// A pointer to the root node of the object tree
     pub objects: AMPointerGlobal,
-    _directory: AMPointerGlobal,
+    directory: AMPointerGlobal,
     txid: u128,
     _padding: [u8; BLOCK_SIZE - 80],
 }
@@ -33,9 +34,9 @@ impl FSGroup {
     pub fn new() -> FSGroup {
         FSGroup {
             alloc: AMPointerGlobal::null(),
-            _journal: AMPointerGlobal::null(),
+            journal: AMPointerGlobal::null(),
             objects: AMPointerGlobal::null(),
-            _directory: AMPointerGlobal::null(),
+            directory: AMPointerGlobal::null(),
             txid: 0,
             _padding: [0; BLOCK_SIZE - 80],
         }
@@ -43,6 +44,22 @@ impl FSGroup {
     /// Gets this group's transaction ID
     pub fn get_txid(&self) -> u128 {
         self.txid
+    }
+    /// Gets a pointer to this group's allocator
+    pub fn alloc(&self) -> AMPointerGlobal {
+        self.alloc
+    }
+    /// Gets a pointer to this group's object set
+    pub fn objects(&self) -> AMPointerGlobal {
+        self.objects
+    }
+    /// Gets a pointer to this group's journal
+    pub fn journal(&self) -> AMPointerGlobal {
+        self.journal
+    }
+    /// Gets a pointer to this group's directory tree
+    pub fn directory(&self) -> AMPointerGlobal {
+        self.directory
     }
     /// Reads a FSGroup from the disk group
     pub fn read(dgs: &[Option<DiskGroup>], ptr: AMPointerGlobal) -> AMResult<FSGroup> {
@@ -54,12 +71,10 @@ impl FSGroup {
         Ok(res)
     }
     /// Writes a FSGroup to the disk group
-    pub fn write(&self, dgs: &[Option<DiskGroup>], n: u8) -> AMResult<AMPointerGlobal> {
-        let mut dg = dgs[n as usize].as_ref().ok_or(0)?.clone();
-        let mut ptr = dg.alloc(1)?;
+    pub fn write(&self, dgs: &[Option<DiskGroup>], ptr: &mut AMPointerGlobal) -> AMResult<()> {
         ptr.write(0,BLOCK_SIZE,dgs, self)?;
         ptr.update(dgs)?;
-        Ok(ptr)
+        Ok(())
     }
     /// Fetches the allocator object for each disk
     pub fn get_allocators(&self, dgs: &[Option<DiskGroup>]) -> AMResult<BTreeMap<u64,Allocator>> {

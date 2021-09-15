@@ -6,7 +6,8 @@ use amos_std::AMResult;
 #[derive(Derivative,Clone)]
 #[derivative(Debug)]
 pub struct DiskGroup {
-    pub(crate) geo: Geometry,
+    /// The group's geometry object
+    pub geo: Geometry,
     #[derivative(Debug="ignore")]
     disks: Vec<Disk>,
     pub(crate) allocs: Vec<Allocator>,
@@ -69,5 +70,12 @@ impl DiskGroup {
                 _ => unimplemented!(),
             }
         )
+    }
+    /// Syncs the disks
+    pub fn sync(&mut self) -> AMResult<()> {
+        for d in &mut self.disks {
+            d.sync()?;
+        }
+        Ok(())
     }
 }
