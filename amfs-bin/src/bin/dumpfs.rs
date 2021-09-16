@@ -1,3 +1,4 @@
+#![cfg(not(tarpaulin_include))]
 #![allow(clippy::all)]
 
 use amfs::*;
