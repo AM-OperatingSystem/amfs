@@ -25,6 +25,7 @@ pub trait LinkedListGlobal<T: Sized> {
 }
 
 impl<T: Copy> LinkedListGlobal<Vec<T>> for Vec<T> {
+    #[cfg(feature="unstable")]
     fn read(dgs: &[Option<DiskGroup>], mut p: AMPointerGlobal) -> AMResult<Vec<T>> {
         let mut res = Vec::new();
         let mut buf = [0;BLOCK_SIZE];
@@ -48,6 +49,7 @@ impl<T: Copy> LinkedListGlobal<Vec<T>> for Vec<T> {
         }
         Ok(res)
     }
+    #[cfg(feature="unstable")]
     fn write(&self, dgs: &[Option<DiskGroup>], n: u8) -> AMResult<AMPointerGlobal> {
         let mut dg = dgs[n as usize].clone();
 
@@ -97,11 +99,13 @@ impl<T: Copy> LinkedListGlobal<Vec<T>> for Vec<T> {
 
         Ok(blockptrs[0])
     }
+    #[cfg(feature="unstable")]
     fn prealloc(&self, count: usize, dgs: &mut [Option<DiskGroup>], n:u8 ) -> AMResult<Vec<AMPointerGlobal>> {
         let ent_each = (crate::BLOCK_SIZE - std::mem::size_of::<LLGHeader>())/std::mem::size_of::<T>();
         let blks = if count==0 { 1 } else { (count+(ent_each-1))/ent_each };
         dgs[n as usize].as_mut().ok_or(0)?.alloc_many(blks as u64)
     }
+    #[cfg(feature="unstable")]
     fn write_preallocd(&self, dgs: &[Option<DiskGroup>], blks: &[AMPointerGlobal]) -> AMResult<AMPointerGlobal> {
         
         let mut blockptrs = blks.to_vec();

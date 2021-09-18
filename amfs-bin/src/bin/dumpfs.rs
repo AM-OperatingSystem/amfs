@@ -1,6 +1,9 @@
 #![cfg(not(tarpaulin_include))]
 #![allow(clippy::all)]
 
+#![allow(unknown_lints)]
+#![allow(require_stability_comment)]
+
 use amfs::*;
 
 use amfs::{BLOCK_SIZE,SIGNATURE};

@@ -28,10 +28,12 @@ pub struct ObjectListHeader {
 
 impl ObjectListHeader {
     /// Create header from bytes
+    #[cfg(feature="stable")]
     pub fn from_bytes(buf: [u8;32]) -> ObjectListHeader {
         unsafe { std::ptr::read(buf.as_ptr() as *const _) }
     }
     /// Convert header to bytes
+    #[cfg(feature="stable")]
     pub fn to_bytes(&self) -> &[u8] {
         unsafe {
             std::slice::from_raw_parts(
@@ -44,10 +46,12 @@ impl ObjectListHeader {
 
 impl ObjectSet {
     /// Creates a new object set handle
+    #[cfg(feature="stable")]
     pub fn read(dgs: [Option<DiskGroup>;16],ptr: AMPointerGlobal) -> AMResult<ObjectSet> {
         Ok(ObjectSet{ptr,dgs})
     }
     /// Gets the object with a given ID
+    #[cfg(feature="stable")]
     pub fn get_object(&self, id: u64) -> AMResult<Option<Object>> {
         let mut ptr = self.ptr;
         loop {
@@ -82,6 +86,7 @@ impl ObjectSet {
         Ok(None)
     }
     /// Gets all objects in the filesystem
+    #[cfg(feature="stable")]
     pub fn get_objects(&self) -> AMResult<BTreeMap<u64,Object>> {
         let mut res = BTreeMap::new();
         let mut ptr = self.ptr;
@@ -108,6 +113,7 @@ impl ObjectSet {
         Ok(res)
     }
     /// Updates or inserts an object
+    #[cfg(feature="unstable")]
     pub fn set_object(&mut self, id: u64, obj: Object) -> AMResult<()>{
         let mut _ptr_prev = AMPointerGlobal::null();
         let mut ptr = self.ptr;
@@ -171,6 +177,7 @@ pub struct Object {
 
 impl Object {
     /// Reads the contents of an object from the disk
+    #[cfg(feature="stable")]
     pub fn read(&self,start:u64,data:&mut [u8],dgs:&[Option<DiskGroup>]) -> AMResult<u64> {
         let mut res = 0;
         let mut pos = 0;
@@ -189,6 +196,7 @@ impl Object {
         Ok(res.try_into()?)
     }
     /// Reads the contents of an object from the disk
+    #[cfg(feature="unstable")]
     pub fn write(&mut self,start:u64,data:&[u8],dgs:&[Option<DiskGroup>]) -> AMResult<u64> {
         let mut res = 0;
         let mut pos = 0;
@@ -208,6 +216,7 @@ impl Object {
         Ok(res.try_into()?)
     }
     /// Reads the contents of an object from the disk
+    #[cfg(feature="stable")]
     pub fn size(self) -> AMResult<u64> {
         let mut res = 0;
         for f in self.frags {
@@ -226,9 +235,11 @@ pub struct Fragment {
 }
 
 impl Fragment {
+    #[cfg(feature="stable")]
     pub fn from_bytes(buf: [u8;32]) -> Fragment {
         unsafe { std::ptr::read(buf.as_ptr() as *const _) }
     }
+    #[cfg(feature="stable")]
     pub fn to_bytes(&self) -> &[u8] {
         unsafe {
             std::slice::from_raw_parts(

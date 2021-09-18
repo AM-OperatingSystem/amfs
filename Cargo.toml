@@ -6,3 +6,8 @@ members = [
     "amfs-bin",
     "amfs-macros",
 ]
+
+[workspace.metadata.dylint]
+libraries = [
+    { path = "../amos-lints" },
+]

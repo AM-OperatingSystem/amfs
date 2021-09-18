@@ -11,23 +11,28 @@ pub struct Disk(pub Rc<RefCell<dyn DiskObj>>);
 
 impl Disk {
     /// Reads a given block into the buffer.
+    #[cfg(feature="stable")]
     pub fn read_at(&mut self, block: u64, buffer: &mut [u8]) -> AMResult<usize> {
         self.0.borrow_mut().read_at(block,buffer)
     }
     /// Writes a block to a given location.
+    #[cfg(feature="stable")]
     pub fn write_at(&mut self, block: u64, buffer: &[u8]) -> AMResult<usize> {
         self.0.borrow_mut().write_at(block,buffer)
     }
     /// Returns the size of the disk.
+    #[cfg(feature="stable")]
     pub fn size(&self) -> AMResult<u64> {
         self.0.borrow_mut().size()
     }
     /// Syncs the FS's content to disk.
+    #[cfg(feature="stable")]
     pub fn sync(&mut self) -> AMResult<()> {
         self.0.borrow_mut().sync()
     }
 
     /// Calculates the expected position of a disk's headers.
+    #[cfg(feature="unstable")]
     pub fn get_header_locs(&self) -> AMResult<[AMPointerLocal;4]> {
         let mut res = [AMPointerLocal::null(); 4];
         res[0].set_loc(0);

@@ -6,6 +6,7 @@ use crate::BLOCK_SIZE;
 use amos_std::AMResult;
 
 /// Makes a new AMFS filesystem composed of a single disk.
+#[cfg(feature = "unstable")]
 pub fn mkfs_single(mut d: Disk) -> AMResult<()> {
     //Erase disk
         let dsize = d.size()?;

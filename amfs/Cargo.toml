@@ -24,3 +24,8 @@ amos-std = { path = "../../amos-std" }
 
 [dev-dependencies]
 itertools = "0.10.1"
+
+[features]
+default = ["stable","unstable"]
+stable = []
+unstable = []
