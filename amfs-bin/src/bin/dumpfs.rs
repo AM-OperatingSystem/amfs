@@ -25,7 +25,8 @@ enum BlockType {
     Superblock(Superblock),
     Geometry(Geometry),
     FSGroup(FSGroup),
-    Alloc(Allocator),
+    Alloc(AMPointerGlobal),
+    AllocList(AMPointerGlobal),
     Objects(ObjectSet),
     Error,
 }
@@ -49,7 +50,7 @@ fn main() {
         let mut upd=false;
         for (idx,typ) in types.clone().iter().enumerate() {
             if typ.1 { continue }
-            match typ.0 {
+            match &typ.0 {
                 BlockType::Unused => continue,
                 BlockType::Error => continue,
                 BlockType::Superblock(s) => {
@@ -77,6 +78,20 @@ fn main() {
                     types[idx].1 = true;
                     upd=true;
                 },
+                BlockType::AllocList(a) => {
+                    let mut buf = [0u8;BLOCK_SIZE];
+                    a.read(0,BLOCK_SIZE,&[Some(dg.clone())],&mut buf).unwrap();
+                    let hdr = unsafe { u8_slice_as_any::<LLGHeader>(&buf) } ;
+                    if !hdr.next.is_null() {
+                        types[hdr.next.loc() as usize] = (BlockType::AllocList(hdr.next),false)
+                    }
+                    for i in 0..usize::from(hdr.count) {
+                        let ptr = unsafe { u8_slice_as_any::<AMPointerGlobal>(&buf[0x28+i*24..0x38+i*24]) } ;
+                        types[ptr.loc() as usize] = (BlockType::Alloc(*ptr),false)
+                    }
+                    types[idx].1 = true;
+                    upd=true;
+                },
                 BlockType::Alloc(_) => {
                     types[idx].1 = true;
                     upd=true;
@@ -87,11 +102,7 @@ fn main() {
                 },
                 BlockType::FSGroup(f) => {
                     if !f.alloc().is_null() { 
-                        if let Ok(a) = Allocator::read(&[Some(dg.clone())],f.alloc()) {
-                            types[f.alloc().loc() as usize]=(BlockType::Alloc(a),false)
-                        } else {
-                            types[f.alloc().loc() as usize]=(BlockType::Error,true)
-                        }
+                        types[f.alloc().loc() as usize]=(BlockType::AllocList(f.alloc()),false)
                     }
                     if !f.objects().is_null() { 
                         if let Ok(o) = ObjectSet::read([Some(dg.clone()),None,None,None,None,None,None,None,None,None,None,None,None,None,None,None],f.objects()) {
@@ -115,7 +126,8 @@ fn main() {
             BlockType::Superblock(s) => print_superblock(idx,buf,s,&d),
             BlockType::Geometry(g) => print_geometry(idx,buf,g,&d),
             BlockType::FSGroup(f) => print_fsgroup(idx,buf,f,&dg),
-            BlockType::Alloc(a) => print_alloc(idx,buf,a,&dg),
+            BlockType::AllocList(_) => print_alloclist(idx,buf),
+            BlockType::Alloc(_) => print_alloc(idx,buf),
             BlockType::Objects(o) => print_objs(idx,buf,o,&dg),
             BlockType::Error => print_error(idx,buf),
         }
@@ -136,7 +148,27 @@ fn print_fsgroup(idx:usize, buf:[u8;BLOCK_SIZE],g:FSGroup,_d:&DiskGroup) {
     print_hex_ptr_global(idx*BLOCK_SIZE+3,&buf[0x10*(3)..],"directory".to_string(),g.directory());
     println!();
 }
-fn print_alloc(idx:usize, buf:[u8;BLOCK_SIZE],_a:Allocator,_d:&DiskGroup) {
+fn print_alloclist(idx:usize, buf:[u8;BLOCK_SIZE]) {
+    println!("AllocatorList:");
+    let hdr = unsafe { u8_slice_as_any::<LLGHeader>(&buf) } ;
+    print_hex_ptr_global(idx*BLOCK_SIZE+0,&buf[0x10*(0)..],"next".to_string(),hdr.next);
+    println!();
+    print_hex(idx*BLOCK_SIZE+1,&buf[0x10*1..]);
+    print!("count:{}",hdr.count);
+    println!();
+    for i in 0..usize::from(hdr.count) {
+        let devid = unsafe { u8_slice_as_any::<u64>(&buf[0x20+i*24..0x28+i*24]) } ;
+        let ptr = unsafe { u8_slice_as_any::<AMPointerGlobal>(&buf[0x28+i*24..0x38+i*24]) } ;
+        print_hex_ptr_global(idx*BLOCK_SIZE+2+(i*3)/2,&buf[0x10*(2+(i*3)/2)..],"alloc".to_string(),*ptr);
+        print!(" dev:{:x}",devid);
+        println!();
+        if i%2 == 0 {
+            print_hex(idx*BLOCK_SIZE+2+(i*3)/2+1,&buf[0x10*(2+(i*3)/2)+1..]);
+            println!();
+        }
+    }
+}
+fn print_alloc(idx:usize, buf:[u8;BLOCK_SIZE]) {
     println!("Allocator:");
     let hdr = unsafe { u8_slice_as_any::<LLGHeader>(&buf) } ;
     print_hex_ptr_global(idx*BLOCK_SIZE+0,&buf[0x10*(0)..],"next".to_string(),hdr.next);
@@ -144,8 +176,27 @@ fn print_alloc(idx:usize, buf:[u8;BLOCK_SIZE],_a:Allocator,_d:&DiskGroup) {
     print_hex(idx*BLOCK_SIZE+1,&buf[0x10*1..]);
     print!("count:{}",hdr.count);
     println!();
-    print_hex(idx*BLOCK_SIZE+2,&buf[0x10*2..]);
-    println!();
+    for i in 0..usize::from(hdr.count) {
+        if i%2==0 {
+            print_hex(idx*BLOCK_SIZE+2+(i)/2,&buf[0x10*(2+i/2)..]);
+        }
+        let alloc = unsafe { u8_slice_as_any::<u64>(&buf[0x20+i*8..0x28+i*8]) } ;
+        if i==0 {
+            print!("length:{} ",alloc);
+        } else {
+            if alloc&0x8000000000000000!=0 {
+                print!("used:{} ",alloc&0x7FFFFFFFFFFFFFFF);
+            } else {
+                print!("free:{} ",alloc);
+            }
+        }
+        if i%2==1 {
+            println!();
+        }
+    }
+    if hdr.count%2==1 {
+        println!();
+    }
 }
 fn print_objs(idx:usize, buf:[u8;BLOCK_SIZE],_o:ObjectSet,_d:&DiskGroup) {
     println!("ObjectSet:");
