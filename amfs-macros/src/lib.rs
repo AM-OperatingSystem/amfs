@@ -1,3 +1,6 @@
+#![allow(unknown_lints)]
+#![allow(require_stability_comment)]
+
 use proc_macro::{TokenStream};
 
 use proc_macro2::{Ident, Span};

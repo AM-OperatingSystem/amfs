@@ -35,6 +35,7 @@ pub struct Superblock {
 
 impl Superblock {
     /// Creates a new superblock. All pointers are initialized null.
+    #[cfg(feature="unstable")]
     pub fn new(devid: u64) -> Superblock {
         Superblock {
             signature: *SIGNATURE,
@@ -48,6 +49,7 @@ impl Superblock {
         }
     }
     /// Reads a superblock from disk.
+    #[cfg(feature="stable")]
     pub fn read(mut d: Disk, ptr: AMPointerLocal) -> AMResult<Superblock> {
         let mut res: Superblock = Superblock::new(0);
         d.read_at(ptr.loc(), &mut res)?;
@@ -56,13 +58,24 @@ impl Superblock {
         assert_or_err!(res.devid!=0,AMErrorFS::DiskID);
         Ok(res)
     }
+    /// Reads a superblock from disk.
+    /// # Safety
+    /// This function disables safety checks on the superblock. You must be able to handle invalid headers.
+    #[cfg(feature="unstable")]
+    pub unsafe fn read_unchecked(mut d: Disk, ptr: AMPointerLocal) -> AMResult<Superblock> {
+        let mut res: Superblock = Superblock::new(0);
+        d.read_at(ptr.loc(), &mut res)?;
+        Ok(res)
+    }
     /// Writes a superblock to disk.
+    #[cfg(feature="stable")]
     pub fn write(&mut self, mut d: Disk, ptr: AMPointerLocal) -> AMResult<AMPointerLocal> {
         self.update_checksum();
         d.write_at(ptr.loc(), self)?;
         Ok(ptr)
     }
     /// Verifies our checksum
+    #[cfg(feature="stable")]
     pub fn verify_checksum(&mut self) -> bool {
         let ondisk = self.checksum;
         self.checksum=0;
@@ -74,6 +87,7 @@ impl Superblock {
         ondisk==calc
     }
     /// Updates our checksum
+    #[cfg(feature="stable")]
     pub fn update_checksum(&mut self) {
         self.checksum=0;
         let mut hasher = Hasher::new();
@@ -82,19 +96,48 @@ impl Superblock {
         self.checksum = checksum;
     }
     /// Getter for devid
+    #[cfg(feature="stable")]
     pub fn devid(&self) -> u64 {
         self.devid
     }
     /// Getter for signature
+    #[cfg(feature="stable")]
     pub fn signature(&self) -> &[u8;8] {
         &self.signature
     }
+    /// Getter for features
+    #[cfg(feature="stable")]
+    pub fn features(&self) -> &BitArr!(for 2048) {
+        &self.features
+    }
+    /// Getter for checksum
+    #[cfg(feature="stable")]
+    pub fn checksum(&self) -> u32 {
+        self.checksum
+    }
+    /// Getter for checksum
+    #[cfg(feature="unstable")]
+    pub fn geometries(&self, i:usize) -> AMPointerLocal {
+        self.geometries[i]
+    }
+    /// Getter for the index of the latest root node
+    #[cfg(feature="stable")]
+    pub fn latest_root(&self) -> u8 {
+        self.latest_root
+    }
+    /// Getter for a specific root node
+    #[cfg(feature="stable")]
+    pub fn rootnodes(&self, i:usize) -> AMPointerGlobal {
+        self.rootnodes[i]
+    }
     /// Fetches the geometry object for the nth geometry spec.
+    #[cfg(feature="unstable")]
     pub fn get_geometry(&self, d: Disk,  n: u8) -> AMResult<Geometry> {
         let ptr = self.geometries[n as usize];
         Geometry::read(d,ptr)
     }
     /// Tests a set of feature flags for compatibility
+    #[cfg(feature="stable")]
     pub fn test_features(&self, features: BTreeSet<usize>) -> bool {
         for i in 0..2048 {
             if {self.features}[i] && ! features.contains(&i) {
@@ -104,6 +147,7 @@ impl Superblock {
         true
     }
     /// Gets the latest valid root group
+    #[cfg(feature="stable")]
     pub fn get_group(&self, d: &[Option<DiskGroup>]) -> AMResult<FSGroup> {
         for i in 0..128 {
             let ptr = self.rootnodes[((self.latest_root+i) % 128) as usize];
@@ -118,6 +162,7 @@ impl Superblock {
 
 impl Deref for Superblock {
     type Target = [u8];
+    #[cfg(feature="unstable")]
     fn deref(&self) -> &[u8] {
         unsafe {
             slice::from_raw_parts(self as *const Superblock as *const u8, mem::size_of::<Superblock>())
@@ -127,6 +172,7 @@ impl Deref for Superblock {
 }
 
 impl DerefMut for Superblock {
+    #[cfg(feature="unstable")]
     fn deref_mut(&mut self) -> &mut [u8] {
         unsafe {
             slice::from_raw_parts_mut(self as *mut Superblock as *mut u8, mem::size_of::<Superblock>())

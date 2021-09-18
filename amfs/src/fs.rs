@@ -1,6 +1,6 @@
 use std::sync::{Arc,RwLock};
 use std::collections::{BTreeSet,BTreeMap};
-use crate::{Superblock,Disk,DiskGroup,Allocator,FSGroup,ObjectSet};
+use crate::{Superblock,Disk,DiskGroup,Allocator,FSGroup,ObjectSet,AMPointerGlobal};
 use amos_std::AMResult;
 use amos_std::error::AMErrorFS;
 use std::convert::TryInto;
@@ -16,6 +16,7 @@ pub struct AMFS {
 
 impl AMFS {
     /// Creates an AMFS object to mount the fs on a disk
+    #[cfg(feature="unstable")]
     pub fn open(d: &[Disk]) -> AMResult<AMFS> {
         let mut res = AMFS{dgs:Default::default(),superblocks:BTreeMap::new(),allocators:BTreeMap::new(),lock: Arc::new(RwLock::new(0))};
         let devids = res.load_superblocks(d)?;
@@ -24,12 +25,14 @@ impl AMFS {
         assert!(res.test_features(crate::AMFeatures::current_set())?);
         Ok(res)
     }
+    #[cfg(feature="stable")]
     fn test_features(&self, features: BTreeSet<usize>) -> AMResult<bool> {
         Ok(self.get_superblock()?.test_features(features))
     }
     /*fn get_geometry(&self, n: u8) -> Result<Geometry,u8> {
         Ok(self.dg[n as usize].as_ref().unwrap().geo)
     }*/
+    #[cfg(feature="stable")]
     fn get_superblock(&self) -> AMResult<Superblock> {
         Ok(
             self.superblocks.values().flatten().filter_map(|x| *x).fold(
@@ -56,9 +59,11 @@ impl AMFS {
             ).ok_or(AMErrorFS::NoSuperblock)?.1
         )
     }
+    #[cfg(feature="stable")]
     fn get_root_group(&self) -> AMResult<FSGroup> {
         self.get_superblock()?.get_group(&self.dgs)
     }
+    #[cfg(feature="stable")]
     fn load_superblocks(&mut self, ds: &[Disk]) -> AMResult<Vec<u64>> {
         let mut res = Vec::with_capacity(ds.len());
         for d in ds {
@@ -78,6 +83,7 @@ impl AMFS {
         }
         Ok(res)
     }
+    #[cfg(feature="stable")]
     fn build_diskgroups(&mut self, devids: &[u64], ds: &[Disk]) -> AMResult<()> {
         for (devid,sbs) in self.superblocks.iter() {
             let diskno = devids.iter().position(|r| r == devid).expect("Superblock with devid matching no disk");
@@ -100,6 +106,7 @@ impl AMFS {
         }
         Ok(())
     }
+    #[cfg(feature="stable")]
     fn load_allocators(&mut self) -> AMResult<()> {
         self.allocators = self.get_superblock()?.get_group(&self.dgs)?.get_allocators(&self.dgs)?;
         for dg in self.dgs.iter_mut().flatten() {
@@ -107,13 +114,40 @@ impl AMFS {
         }
         Ok(())
     }
+    /// Allocates a number of blocks in the filesystem
+    #[cfg(feature="unstable")]
+    pub fn alloc(&self, n: u64) -> AMResult<Option<AMPointerGlobal>> {
+        Ok(Some(self.dgs[0].clone().ok_or(0)?.alloc(n)?))
+    }
     /// Gets the filesystem's object tree
+    #[cfg(feature="unstable")]
     pub fn get_objects(&self) -> AMResult<ObjectSet> {
         let obj_ptr = self.get_root_group()?.get_obj_ptr();
-        ObjectSet::new(obj_ptr,self.dgs.clone())
+        ObjectSet::read(self.dgs.clone(),obj_ptr)
     }
-    /// Gets the object corresponding to a given ID
-    pub fn read_object(&self, id: u64) -> AMResult<Vec<u8>> {
-        self.get_objects()?.get_object(id)?.ok_or(0)?.read()
+    /// Reads the object corresponding to a given ID
+    #[cfg(feature="stable")]
+    pub fn read_object(&self, id: u64,start:u64,data:&mut [u8]) -> AMResult<u64> {
+        self.get_objects()?.get_object(id)?.ok_or(0)?.read(start,data,&self.dgs)
+    }
+    /// Writes to the object corresponding to a given ID
+    #[cfg(feature="unstable")]
+    pub fn write_object(&self, id: u64,start:u64,data:&[u8]) -> AMResult<u64> {
+        self.get_objects()?.get_object(id)?.ok_or(0)?.write(start,data,&self.dgs)
+    }
+    /// Writes to the object corresponding to a given ID
+    #[cfg(feature="stable")]
+    pub fn size_object(&self, id: u64) -> AMResult<u64> {
+        self.get_objects()?.get_object(id)?.ok_or(0)?.size()
+    }
+    /// Syncs the disks
+    #[cfg(feature="stable")]
+    pub fn sync(&mut self) -> AMResult<()> {
+        for i in &mut self.dgs {
+            if let Some(dg) = i {
+                dg.sync()?
+            }
+        }
+        Ok(())
     }
 }

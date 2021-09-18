@@ -32,6 +32,7 @@ pub struct Geometry {
 
 impl Geometry {
     /// Creates a new empty geometry object.
+    #[cfg(feature="unstable")]
     pub fn new() -> Geometry {
         Geometry {
             flavor: GeometryFlavor::Single,
@@ -40,6 +41,7 @@ impl Geometry {
         }
     }
     /// Reads a geometry from disk.
+    #[cfg(feature="stable")]
     pub fn read(mut d: Disk, ptr: AMPointerLocal) -> AMResult<Geometry> {
         let mut res: Geometry = Geometry::new();
         d.read_at(ptr.loc(), &mut res)?;
@@ -47,12 +49,14 @@ impl Geometry {
         Ok(res)
     }
     /// Writes a geometry to disk.
+    #[cfg(feature="stable")]
     pub fn write(&self, mut d: Disk, mut ptr: AMPointerLocal) -> AMResult<AMPointerLocal> {
         d.write_at(ptr.loc(), self)?;
         ptr.update(d)?;
         Ok(ptr)
     }
     /// Gets the geometry object's flavor
+    #[cfg(feature="stable")]
     pub fn flavor(&self) -> GeometryFlavor {
         self.flavor
     }
@@ -60,6 +64,7 @@ impl Geometry {
 
 impl Deref for Geometry {
     type Target = [u8];
+    #[cfg(feature="unstable")]
     fn deref(&self) -> &[u8] {
         unsafe {
             slice::from_raw_parts(self as *const Geometry as *const u8, mem::size_of::<Geometry>())
@@ -69,6 +74,7 @@ impl Deref for Geometry {
 }
 
 impl DerefMut for Geometry {
+    #[cfg(feature="unstable")]
     fn deref_mut(&mut self) -> &mut [u8] {
         unsafe {
             slice::from_raw_parts_mut(self as *mut Geometry as *mut u8, mem::size_of::<Geometry>())

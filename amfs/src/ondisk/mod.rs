@@ -4,7 +4,7 @@ pub use self::geometry::{Geometry,GeometryFlavor};
 pub use self::fsgroup::FSGroup;
 pub use self::allocator::Allocator;
 pub use self::linkedlist::LinkedListGlobal;
-pub use self::object::{Object,ObjectSet};
+pub use self::object::{Object,ObjectSet,ObjectListHeader};
 
 mod pointer;
 mod superblock;

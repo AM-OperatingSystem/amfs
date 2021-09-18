@@ -6,7 +6,8 @@ use amos_std::AMResult;
 #[derive(Derivative,Clone)]
 #[derivative(Debug)]
 pub struct DiskGroup {
-    pub(crate) geo: Geometry,
+    /// The group's geometry object
+    pub geo: Geometry,
     #[derivative(Debug="ignore")]
     disks: Vec<Disk>,
     pub(crate) allocs: Vec<Allocator>,
@@ -14,6 +15,7 @@ pub struct DiskGroup {
 
 impl DiskGroup {
     /// Creates a disk group containing a single disk
+    #[cfg(feature="stable")]
     pub fn single(g: Geometry, d: Disk, a: Allocator) -> DiskGroup {
         DiskGroup{
             geo: g,
@@ -22,6 +24,7 @@ impl DiskGroup {
         }
     }
     /// Creates a disk group containing a single disk
+    #[cfg(feature="stable")]
     pub fn from_geo(g: Geometry, devids: &[u64], ds: &[Disk]) -> DiskGroup {
         let mut disks = Vec::new();
         for devid in g.device_ids {
@@ -36,6 +39,7 @@ impl DiskGroup {
         }
     }
     /// Initializes out allocator set from an allocator map
+    #[cfg(feature="stable")]
     pub fn load_allocators(&mut self, allocs: BTreeMap<u64,Allocator>) {
         for devid in self.geo.device_ids {
             if devid == 0 { break; }
@@ -43,11 +47,13 @@ impl DiskGroup {
         }
     }
     /// Gets the nth disk
+    #[cfg(feature="stable")]
     pub fn get_disk(&self, n: u8) -> Disk{
         assert!(self.geo.device_ids[n as usize]!=0);
         self.disks[n as usize].clone()
     }
     /// Allocates a block
+    #[cfg(feature="unstable")]
     pub fn alloc(&mut self, n: u64) -> AMResult<AMPointerGlobal> {
         Ok(
             match self.geo.flavor() {
@@ -60,6 +66,7 @@ impl DiskGroup {
         )
     }
     /// Allocates a block
+    #[cfg(feature="unstable")]
     pub fn alloc_many(&mut self, count: u64) -> AMResult<Vec<AMPointerGlobal>> {
         Ok(
             match self.geo.flavor() {
@@ -69,5 +76,13 @@ impl DiskGroup {
                 _ => unimplemented!(),
             }
         )
+    }
+    /// Syncs the disks
+    #[cfg(feature="stable")]
+    pub fn sync(&mut self) -> AMResult<()> {
+        for d in &mut self.disks {
+            d.sync()?;
+        }
+        Ok(())
     }
 }

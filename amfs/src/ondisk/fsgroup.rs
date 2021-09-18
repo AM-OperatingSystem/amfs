@@ -9,13 +9,14 @@ use amos_std::AMResult;
 use crate::BLOCK_SIZE;
 
 #[repr(packed)]
+#[derive(Debug,Clone,Copy)]
 /// A group of filesystems.
 pub struct FSGroup {
     alloc: AMPointerGlobal,
-    _journal: AMPointerGlobal,
+    journal: AMPointerGlobal,
     /// A pointer to the root node of the object tree
     pub objects: AMPointerGlobal,
-    _directory: AMPointerGlobal,
+    directory: AMPointerGlobal,
     txid: u128,
     _padding: [u8; BLOCK_SIZE - 80],
 }
@@ -30,21 +31,44 @@ pub struct AllocListEntry {
 
 impl FSGroup {
     /// Creates a new blank FS group
+    #[cfg(feature="unstable")]
     pub fn new() -> FSGroup {
         FSGroup {
             alloc: AMPointerGlobal::null(),
-            _journal: AMPointerGlobal::null(),
+            journal: AMPointerGlobal::null(),
             objects: AMPointerGlobal::null(),
-            _directory: AMPointerGlobal::null(),
+            directory: AMPointerGlobal::null(),
             txid: 0,
             _padding: [0; BLOCK_SIZE - 80],
         }
     }
     /// Gets this group's transaction ID
+    #[cfg(feature="stable")]
     pub fn get_txid(&self) -> u128 {
         self.txid
     }
+    /// Gets a pointer to this group's allocator
+    #[cfg(feature="unstable")]
+    pub fn alloc(&self) -> AMPointerGlobal {
+        self.alloc
+    }
+    /// Gets a pointer to this group's object set
+    #[cfg(feature="unstable")]
+    pub fn objects(&self) -> AMPointerGlobal {
+        self.objects
+    }
+    /// Gets a pointer to this group's journal
+    #[cfg(feature="unstable")]
+    pub fn journal(&self) -> AMPointerGlobal {
+        self.journal
+    }
+    /// Gets a pointer to this group's directory tree
+    #[cfg(feature="unstable")]
+    pub fn directory(&self) -> AMPointerGlobal {
+        self.directory
+    }
     /// Reads a FSGroup from the disk group
+    #[cfg(feature="unstable")]
     pub fn read(dgs: &[Option<DiskGroup>], ptr: AMPointerGlobal) -> AMResult<FSGroup> {
         assert!(!ptr.is_null());
         
@@ -54,14 +78,14 @@ impl FSGroup {
         Ok(res)
     }
     /// Writes a FSGroup to the disk group
-    pub fn write(&self, dgs: &[Option<DiskGroup>], n: u8) -> AMResult<AMPointerGlobal> {
-        let mut dg = dgs[n as usize].as_ref().ok_or(0)?.clone();
-        let mut ptr = dg.alloc(1)?;
+    #[cfg(feature="unstable")]
+    pub fn write(&self, dgs: &[Option<DiskGroup>], ptr: &mut AMPointerGlobal) -> AMResult<()> {
         ptr.write(0,BLOCK_SIZE,dgs, self)?;
         ptr.update(dgs)?;
-        Ok(ptr)
+        Ok(())
     }
     /// Fetches the allocator object for each disk
+    #[cfg(feature="unstable")]
     pub fn get_allocators(&self, dgs: &[Option<DiskGroup>]) -> AMResult<BTreeMap<u64,Allocator>> {
         let allocs : Vec<AllocListEntry> = <Vec<AllocListEntry> as LinkedListGlobal<Vec<AllocListEntry>>>::read(dgs,self.alloc)?;
         let mut res = BTreeMap::new();
@@ -72,6 +96,7 @@ impl FSGroup {
         Ok(res)
     }
     /// Writes out the allocator object for each disk
+    #[cfg(feature="unstable")]
     pub fn write_allocators(&mut self, dgs: &mut [Option<DiskGroup>], ad: &mut BTreeMap<u64,Allocator>) -> AMResult<()> {
         let alloc_blocks = ad.iter_mut().map(|(k,v)| Ok((*k,v.prealloc(dgs,0)?))).collect::<AMResult<BTreeMap<u64, Vec<AMPointerGlobal>>>>()?;
         let allocs : Vec<AllocListEntry> = Vec::new();
@@ -81,6 +106,7 @@ impl FSGroup {
         Ok(())
     }
     /// Gets the pointer to the objects table
+    #[cfg(feature="unstable")]
     pub fn get_obj_ptr(&self) -> AMPointerGlobal {
         self.objects
     }
@@ -88,6 +114,7 @@ impl FSGroup {
 
 impl Deref for FSGroup {
     type Target = [u8];
+    #[cfg(feature="unstable")]
     fn deref(&self) -> &[u8] {
         unsafe {
             slice::from_raw_parts(self as *const FSGroup as *const u8, mem::size_of::<FSGroup>())
@@ -97,6 +124,7 @@ impl Deref for FSGroup {
 }
 
 impl DerefMut for FSGroup {
+    #[cfg(feature="unstable")]
     fn deref_mut(&mut self) -> &mut [u8] {
         unsafe {
             slice::from_raw_parts_mut(self as *mut FSGroup as *mut u8, mem::size_of::<FSGroup>())

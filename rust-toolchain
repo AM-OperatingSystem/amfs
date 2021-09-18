@@ -1,0 +1,4 @@
+[toolchain]
+channel = "nightly"
+components = ["llvm-tools-preview","rls","rust-analysis","rust-src"]
+profile = "default"

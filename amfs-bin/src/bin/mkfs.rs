@@ -1,3 +1,6 @@
+#![allow(unknown_lints)]
+#![allow(require_stability_comment)]
+
 use amfs::mkfs::mkfs_single;
 
 fn main() {

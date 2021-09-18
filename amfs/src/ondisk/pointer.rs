@@ -1,6 +1,7 @@
 use crc32fast::Hasher;
 use crate::{Disk,DiskGroup,GeometryFlavor};
 use amos_std::AMResult;
+use std::convert::{TryFrom,TryInto};
 use crate::BLOCK_SIZE;
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -15,14 +16,17 @@ pub struct AMPointerGlobal(pub(crate) AMPointer);
 
 impl AMPointerGlobal {
     /// Creates a new pointer pointing at a given address and device. Invalid until updated
+    #[cfg(feature="stable")]
     pub fn new(addr: u64, len:u8, geo:u8, dev:u8) -> Self {
         Self{0:AMPointer::new(addr,len,geo,dev)}
     }
     /// Creates a null pointer. Guaranteed invalid.
+    #[cfg(feature="stable")]
     pub fn null () -> AMPointerGlobal {
         AMPointerGlobal{0:AMPointer::null()}
     }
     /// Validates a pointer against a block on-disk.
+    #[cfg(feature="unstable")]
     pub fn validate(&self, d: &[Option<DiskGroup>]) -> AMResult<bool> {
         assert_eq!(self.0.len,1);
         let mut buf = [0;BLOCK_SIZE];
@@ -30,6 +34,7 @@ impl AMPointerGlobal {
         Ok(self.0.validate(&buf))
     }
     /// Updates a pointer's checksum to match on-disk data.
+    #[cfg(feature="unstable")]
     pub fn update(&mut self, d: &[Option<DiskGroup>]) -> AMResult<()> {
         assert_eq!(self.0.len,1);
         let mut buf = [0;BLOCK_SIZE];
@@ -42,27 +47,67 @@ impl AMPointerGlobal {
         self.0.geometry
     }
     /// Checks if the pointer is null
+    #[cfg(feature="stable")]
     pub fn is_null(&self) -> bool {
         self.0.is_null()
     }
     /// Gets the location the pointer is addressing
+    #[cfg(feature="stable")]
     pub fn loc(&self) -> u64 {
         assert!(!self.is_null());
         self.0.location
     }
+    /// Gets the device the pointer is addressing
+    #[cfg(feature="stable")]
+    pub fn dev(&self) -> u8 {
+        assert!(!self.is_null());
+        self.0.device
+    }
+    /// Gets the device the pointer is addressing
+    #[cfg(feature="stable")]
+    pub fn geo(&self) -> u8 {
+        assert!(!self.is_null());
+        self.0.geometry
+    }
     /// Reads from the referenced location
-    pub fn read(self, start: usize, size: usize, dgs: &[Option<DiskGroup>], buf: &mut [u8]) -> AMResult<usize> {
-        assert_eq!(self.0.len,1);
-        assert_eq!(start,0);
-        assert_eq!(size,BLOCK_SIZE);
-        match dgs[self.geometry() as usize].as_ref().ok_or(0)?.geo.flavor() {
-            GeometryFlavor::Single => {
-                dgs[self.geometry() as usize].as_ref().ok_or(0)?.get_disk(0).read_at(self.loc(),buf)
-            },
-            _ => unimplemented!(),
+    #[cfg(feature="unstable")]
+    pub fn read(self, start: usize, size: usize, dgs: &[Option<DiskGroup>], data: &mut [u8]) -> AMResult<usize> {
+        println!("Read: {},{}+{}",self.loc(),start,size);
+        //Single whole block writes are atomic
+        if start==0 && size==BLOCK_SIZE {
+            match dgs[self.geometry() as usize].as_ref().ok_or(0)?.geo.flavor() {
+                GeometryFlavor::Single => {
+                    dgs[self.geometry() as usize].as_ref().ok_or(0)?.get_disk(0).read_at(self.loc(),data)
+                },
+                _ => unimplemented!(),
+            }
+        } else if start%BLOCK_SIZE == 0 && size == BLOCK_SIZE {
+            match dgs[self.geometry() as usize].as_ref().ok_or(0)?.geo.flavor() {
+                GeometryFlavor::Single => {
+                    dgs[self.geometry() as usize].as_ref().ok_or(0)?.get_disk(0).read_at((usize::try_from(self.loc())?+start/BLOCK_SIZE).try_into()?,data)
+                },
+                _ => unimplemented!(),
+            }
+        } else {
+            let mut buf = [0u8;BLOCK_SIZE];
+            let start_block = start/BLOCK_SIZE;
+            let start_offs = start%BLOCK_SIZE;
+            let end_block = (start+size) / BLOCK_SIZE;
+            let end_offs = (start+size) % BLOCK_SIZE;
+            self.read(start_block*BLOCK_SIZE,BLOCK_SIZE,dgs,&mut buf)?;
+            if start_block==end_block {
+                let mut buf = [0u8;BLOCK_SIZE];
+                self.read(start_block*BLOCK_SIZE,BLOCK_SIZE,dgs,&mut buf)?;
+                data.clone_from_slice(&buf[start_offs..end_offs]);
+                Ok(size)
+            } else {
+                unimplemented!();
+            }
+            
         }
     }
     /// Reads from the referenced location
+    #[cfg(feature="stable")]
     pub fn read_vec(self, dgs: &[Option<DiskGroup>]) -> AMResult<Vec<u8>> {
         let mut res = Vec::new();
         res.resize(usize::from(self.0.len)*BLOCK_SIZE,0);
@@ -70,18 +115,43 @@ impl AMPointerGlobal {
         Ok(res)
     }
     /// Writes to the referenced location
-    pub fn write(self, start: usize, size: usize, dgs: &[Option<DiskGroup>], buf: &[u8]) -> AMResult<usize> {
-        assert_eq!(self.0.len,1);
-        assert_eq!(start,0);
-        assert_eq!(size,BLOCK_SIZE);
-        match dgs[self.geometry() as usize].as_ref().ok_or(0)?.geo.flavor() {
-            GeometryFlavor::Single => {
-                dgs[self.geometry() as usize].as_ref().ok_or(0)?.get_disk(0).write_at(self.loc(),buf)
-            },
-            _ => unimplemented!(),
+    #[cfg(feature="unstable")]
+    pub fn write(self, start: usize, size: usize, dgs: &[Option<DiskGroup>], data: &[u8]) -> AMResult<usize> {
+        println!("Write: {},{}+{}",self.loc(),start,size);
+        //Single whole block writes are atomic
+        if start==0 && size==BLOCK_SIZE {
+            match dgs[self.geometry() as usize].as_ref().ok_or(0)?.geo.flavor() {
+                GeometryFlavor::Single => {
+                    dgs[self.geometry() as usize].as_ref().ok_or(0)?.get_disk(0).write_at(self.loc(),data)
+                },
+                _ => unimplemented!(),
+            }
+        } else if start%BLOCK_SIZE == 0 && size == BLOCK_SIZE {
+            match dgs[self.geometry() as usize].as_ref().ok_or(0)?.geo.flavor() {
+                GeometryFlavor::Single => {
+                    dgs[self.geometry() as usize].as_ref().ok_or(0)?.get_disk(0).write_at((usize::try_from(self.loc())?+start/BLOCK_SIZE).try_into()?,data)
+                },
+                _ => unimplemented!(),
+            }
+        } else {
+            let mut buf = [0u8;BLOCK_SIZE];
+            let start_block = start/BLOCK_SIZE;
+            let start_offs = start%BLOCK_SIZE;
+            let end_block = (start+size) / BLOCK_SIZE;
+            let end_offs = (start+size) % BLOCK_SIZE;
+            self.read(start_block*BLOCK_SIZE,BLOCK_SIZE,dgs,&mut buf)?;
+            if start_block==end_block {
+                buf[start_offs..end_offs].clone_from_slice(data);
+                self.write(start_block*BLOCK_SIZE,BLOCK_SIZE,dgs,&buf)?;
+                Ok(size)
+            } else {
+                unimplemented!();
+            }
+            
         }
     }
     /// Creates a pointer from an array of bytes
+    #[cfg(feature="stable")]
     pub fn from_bytes(buf: [u8;16]) -> AMPointerGlobal {
         AMPointerGlobal{0:AMPointer::from_bytes(buf)}
     }
@@ -89,24 +159,29 @@ impl AMPointerGlobal {
 
 impl AMPointerLocal {
     /// Creates a new pointer pointing at a given address. Invalid until updated
+    #[cfg(feature="stable")]
     pub fn new(addr: u64) -> AMPointerLocal {
         AMPointerLocal{0:AMPointer::new(addr,0,1,0)}
     }
     /// Creates a null pointer. Guaranteed invalid.
+    #[cfg(feature="stable")]
     pub fn null() -> AMPointerLocal {
         AMPointerLocal{0:AMPointer::null()}
     }
     /// Checks if the pointer is null
+    #[cfg(feature="stable")]
     pub fn is_null(&self) -> bool {
         self.0.is_null()
     }
     /// Validates a pointer against a block on-disk.
+    #[cfg(feature="stable")]
     pub fn validate(&self, mut d: Disk) -> AMResult<bool> {
         let mut target = [0;BLOCK_SIZE];
         d.read_at(self.0.location,&mut target)?;
         Ok(self.0.validate(&target))
     }
     /// Updates a pointer's checksum to match on-disk data.
+    #[cfg(feature="stable")]
     pub fn update(&mut self, mut d: Disk) -> AMResult<()> {
         let mut target = [0;BLOCK_SIZE];
         d.read_at(self.0.location,&mut target)?;
@@ -114,16 +189,19 @@ impl AMPointerLocal {
         Ok(())
     }
     /// Gets the location the pointer is addressing
+    #[cfg(feature="stable")]
     pub fn loc(&self) -> u64 {
         assert!(!self.is_null());
         self.0.location
     }
     /// Sets the location the pointer is addressing
+    #[cfg(feature="unstable")]
     pub fn set_loc(&mut self, loc: u64) {
         self.0.padding = 0xFF;
         self.0.location = loc;
     }
     /// Creates a pointer from an array of bytes
+    #[cfg(feature="stable")]
     pub fn from_bytes(buf: [u8;16]) -> AMPointerLocal {
         AMPointerLocal{0:AMPointer::from_bytes(buf)}
     }
@@ -141,6 +219,7 @@ pub(crate) struct AMPointer {
 }
 
 impl AMPointer {
+    #[cfg(feature="stable")]
     pub fn new (addr: u64, len: u8, geo: u8, dev: u8) -> AMPointer {
         AMPointer{
             location: addr,
@@ -151,7 +230,9 @@ impl AMPointer {
             checksum: 0,
         }
     }
+    #[cfg(feature="unstable")]
     pub fn null() -> AMPointer {
+
         AMPointer{
             location: 0,
             device: 0,
@@ -161,9 +242,11 @@ impl AMPointer {
             checksum: 0,
         }
     }
+    #[cfg(feature="stable")]
     pub fn is_null(&self) -> bool {
         self.padding==0
     }
+    #[cfg(feature="stable")]
     pub fn validate(&self, target: &[u8]) -> bool {
         let mut hasher = Hasher::new();
         hasher.update(target);
@@ -174,6 +257,7 @@ impl AMPointer {
         true
     }
 
+    #[cfg(feature="stable")]
     pub fn update(&mut self, target: &[u8]) {
         let mut hasher = Hasher::new();
         hasher.update(target);
@@ -181,6 +265,7 @@ impl AMPointer {
         self.checksum = checksum;
     }
 
+    #[cfg(feature="stable")]
     pub fn from_bytes(buf: [u8;16]) -> AMPointer {
         unsafe { std::ptr::read(buf.as_ptr() as *const _) }
     }

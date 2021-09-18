@@ -11,46 +11,57 @@ pub struct Allocator(pub Rc<RefCell<AllocatorObj>>);
 
 impl Allocator {
     /// Creates a new allocator
+    #[cfg(feature="stable")]
     pub fn new(size: u64) -> Self {
         Allocator{0:Rc::new(RefCell::new(AllocatorObj::new(size)))}
     }
     /// Reads a superblock from disk.
+    #[cfg(feature="stable")]
     pub fn read(d: &[Option<DiskGroup>], ptr: AMPointerGlobal) -> AMResult<Self> {
         Ok(Allocator{0:Rc::new(RefCell::new(AllocatorObj::read(d,ptr)?))})
     }
     /// Marks an extent used
+    #[cfg(feature="stable")]
     pub fn mark_used(&mut self, start: u64, size: u64) -> AMResult<()> {
         self.0.borrow_mut().mark_used(start,size)
     }
     /// Allocates a contiguous space of a given size
+    #[cfg(feature="stable")]
     pub fn alloc(&mut self, size: u64) -> Option<u64> {
         self.0.borrow_mut().alloc(size)
     }
     /// Allocates several blocks, not necessarily contiguous
+    #[cfg(feature="unstable")]
     pub fn alloc_many(&mut self, count: u64) -> Option<Vec<u64>> {
         self.0.borrow_mut().alloc_many(count)
     }
     /// Writes an allocator to disk.
+    #[cfg(feature="stable")]
     pub fn write(&mut self, d: &mut [Option<DiskGroup>]) -> AMResult<AMPointerGlobal> {
         self.0.borrow_mut().write(d)
     }
     /// Frees a block of space
+    #[cfg(feature="stable")]
     pub fn free(&mut self, start: u64) {
         self.0.borrow_mut().free(start)
     }
     /// Returns the amount of space free
+    #[cfg(feature="stable")]
     pub fn free_space(&self) -> u64 {
         self.0.borrow().free_space()
     }
     /// Returns the amount of space in use
+    #[cfg(feature="stable")]
     pub fn used_space(&self) -> u64 {
         self.0.borrow().used_space()
     }
     /// Returns the total space belonging to this allocator
+    #[cfg(feature="stable")]
     pub fn total_space(&self) -> u64 {
         self.0.borrow().total_space()
     }
     /// Preallocates blocks needed to store the allocator
+    #[cfg(feature="unstable")]
     pub fn prealloc(&self, dgs: &mut [Option<DiskGroup>],n: u8) -> AMResult<Vec<AMPointerGlobal>> {
         let ent_each = (crate::BLOCK_SIZE - std::mem::size_of::<crate::ondisk::linkedlist::LLGHeader>())/std::mem::size_of::<u64>();
         let exlen = self.0.borrow().extents.len()+1;
@@ -65,6 +76,7 @@ impl Allocator {
         Ok(res)
     }
     /// Writes out the allocator into a preallocated set of blocks
+    #[cfg(feature="unstable")]
     pub fn write_preallocd(&mut self, dgs: &mut [Option<DiskGroup>], ptrs: &[AMPointerGlobal]) -> AMResult<AMPointerGlobal> {
         self.0.borrow_mut().write_preallocd(dgs,ptrs)
     }
@@ -84,6 +96,7 @@ pub struct Extent {
 }
 
 impl AllocatorObj {
+    #[cfg(feature="stable")]
     fn new(size: u64) -> Self {
         let mut exmap = BTreeMap::new();
         exmap.insert(0, Extent{size,used:false});
@@ -93,6 +106,7 @@ impl AllocatorObj {
         }
     }
     /// Returns the amount of space free
+    #[cfg(feature="stable")]
     fn free_space(&self) -> u64 {
         let mut free = 0;
         for ex in self.extents.values() {
@@ -103,6 +117,7 @@ impl AllocatorObj {
         free
     }
     /// Returns the amount of space in use
+    #[cfg(feature="stable")]
     fn used_space(&self) -> u64 {
         let mut used = 0;
         for ex in self.extents.values() {
@@ -113,9 +128,11 @@ impl AllocatorObj {
         used
     }
     /// Returns the total space belonging to this allocator
+    #[cfg(feature="stable")]
     fn total_space(&self) -> u64 {
         self.size
     }
+    #[cfg(feature="stable")]
     fn alloc(&mut self, size: u64) -> Option<u64> {
         assert!(size>0);
         assert_le!(size,self.size);
@@ -144,6 +161,7 @@ impl AllocatorObj {
         }
         None
     }
+    #[cfg(feature="unstable")]
     fn alloc_many(&mut self, count: u64) -> Option<Vec<u64>> {
         let mut res = Vec::new();
         for _ in 0..count {
@@ -158,6 +176,7 @@ impl AllocatorObj {
         }
         Some(res)
     }
+    #[cfg(feature="stable")]
     fn free(&mut self, addr: u64) {
         let ex = self.extents.get_mut(&addr).unwrap();
         assert!(ex.used);
@@ -185,6 +204,7 @@ impl AllocatorObj {
             self.extents.remove(&addr);
         }
     }
+    #[cfg(feature="stable")]
     fn mark_used(&mut self, start: u64, size: u64) -> AMResult<()> {
         let containing = self.extents.range(..=start).next_back();
         if containing.is_none() {
@@ -214,6 +234,7 @@ impl AllocatorObj {
         }
         Ok(())
     }
+    #[cfg(feature="stable")]
     fn read(dgs: &[Option<DiskGroup>], ptr: AMPointerGlobal) -> AMResult<Self> {
         let a = <Vec<u64> as LinkedListGlobal<Vec<u64>>>::read(dgs,ptr)?;
         let mut start = 0;
@@ -226,11 +247,13 @@ impl AllocatorObj {
         };
         Ok(allocator)
     }
+    #[cfg(feature="unstable")]
     fn write(&mut self, dgs: &mut [Option<DiskGroup>]) -> AMResult<AMPointerGlobal> {
         let mut a : Vec<u64> = self.extents.values().map(|v| if v.used {v.size | 0x8000000000000000} else {v.size}).collect();
         a.insert(0,self.size);
         LinkedListGlobal::write(&a, dgs,0)
     }
+    #[cfg(feature="unstable")]
     fn write_preallocd(&mut self, dgs: &mut [Option<DiskGroup>], ptrs: &[AMPointerGlobal]) -> AMResult<AMPointerGlobal> {
         let mut a : Vec<u64> = self.extents.values().map(|v| if v.used {v.size | 0x8000000000000000} else {v.size}).collect();
         a.insert(0,self.size);

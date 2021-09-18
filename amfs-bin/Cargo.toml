@@ -7,3 +7,6 @@ edition = "2018"
 
 [dependencies]
 amfs = { path = "../amfs" }
+colored = "2.0.0"
+strum = "0.21"
+strum_macros = "0.21"
