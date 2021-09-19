@@ -45,6 +45,7 @@ impl DiskObj for DiskFile {
     #[cfg(feature="stable")]
     fn read_at(&mut self, block: u64, buffer: &mut [u8]) -> AMResult<usize> {
         self.f.seek(SeekFrom::Start(block*(BLOCK_SIZE as u64))).or(Err(0))?;
+        assert!(buffer.len() == BLOCK_SIZE);
         self.f.read_exact(buffer).or(Err(0))?;
         Ok(buffer.len())
     }

@@ -24,7 +24,7 @@ pub trait LinkedListGlobal<T: Sized> {
     fn write_preallocd(&self, d: &[Option<DiskGroup>], blocks: &[AMPointerGlobal]) -> AMResult<AMPointerGlobal>;
 }
 
-impl<T: Copy> LinkedListGlobal<Vec<T>> for Vec<T> {
+impl<T: Copy+std::fmt::Debug> LinkedListGlobal<Vec<T>> for Vec<T> {
     #[cfg(feature="unstable")]
     fn read(dgs: &[Option<DiskGroup>], mut p: AMPointerGlobal) -> AMResult<Vec<T>> {
         let mut res = Vec::new();
@@ -101,13 +101,16 @@ impl<T: Copy> LinkedListGlobal<Vec<T>> for Vec<T> {
     }
     #[cfg(feature="unstable")]
     fn prealloc(&self, count: usize, dgs: &mut [Option<DiskGroup>], n:u8 ) -> AMResult<Vec<AMPointerGlobal>> {
+        println!("Preallocing");
         let ent_each = (crate::BLOCK_SIZE - std::mem::size_of::<LLGHeader>())/std::mem::size_of::<T>();
         let blks = if count==0 { 1 } else { (count+(ent_each-1))/ent_each };
-        dgs[n as usize].as_mut().ok_or(0)?.alloc_many(blks as u64)
+        let res = dgs[n as usize].as_mut().ok_or(0)?.alloc_many(blks as u64);
+        println!("{:?}",res);
+        res
     }
     #[cfg(feature="unstable")]
     fn write_preallocd(&self, dgs: &[Option<DiskGroup>], blks: &[AMPointerGlobal]) -> AMResult<AMPointerGlobal> {
-        
+        println!("Writing: {:?}",blks);
         let mut blockptrs = blks.to_vec();
 
         let ent_each = (BLOCK_SIZE - std::mem::size_of::<LLGHeader>())/std::mem::size_of::<T>();
@@ -125,6 +128,7 @@ impl<T: Copy> LinkedListGlobal<Vec<T>> for Vec<T> {
             for _ in 0..ent_each {
                 let npos = pos + std::mem::size_of::<T>();
                 if let Some(v) = it.next() {
+                    println!("Item! {:x?} {}",v,std::any::type_name::<T>());
                     headers[i].count+=1;
                     unsafe{
                         buf[pos..npos].copy_from_slice(any_as_u8_slice(v));

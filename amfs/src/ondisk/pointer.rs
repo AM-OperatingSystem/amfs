@@ -42,10 +42,6 @@ impl AMPointerGlobal {
         self.0.update(&buf);
         Ok(())
     }
-    /// Gets the pointer's geometry
-    pub fn geometry(&self) -> u8 {
-        self.0.geometry
-    }
     /// Checks if the pointer is null
     #[cfg(feature="stable")]
     pub fn is_null(&self) -> bool {
@@ -63,7 +59,7 @@ impl AMPointerGlobal {
         assert!(!self.is_null());
         self.0.device
     }
-    /// Gets the device the pointer is addressing
+    /// Gets the geometry the pointer is addressing
     #[cfg(feature="stable")]
     pub fn geo(&self) -> u8 {
         assert!(!self.is_null());
@@ -72,19 +68,18 @@ impl AMPointerGlobal {
     /// Reads from the referenced location
     #[cfg(feature="unstable")]
     pub fn read(self, start: usize, size: usize, dgs: &[Option<DiskGroup>], data: &mut [u8]) -> AMResult<usize> {
-        println!("Read: {},{}+{}",self.loc(),start,size);
         //Single whole block writes are atomic
         if start==0 && size==BLOCK_SIZE {
-            match dgs[self.geometry() as usize].as_ref().ok_or(0)?.geo.flavor() {
+            match dgs[self.geo() as usize].as_ref().ok_or(0)?.geo.flavor() {
                 GeometryFlavor::Single => {
-                    dgs[self.geometry() as usize].as_ref().ok_or(0)?.get_disk(0).read_at(self.loc(),data)
+                    dgs[self.geo() as usize].as_ref().ok_or(0)?.get_disk(0).read_at(self.loc(),data)
                 },
                 _ => unimplemented!(),
             }
         } else if start%BLOCK_SIZE == 0 && size == BLOCK_SIZE {
-            match dgs[self.geometry() as usize].as_ref().ok_or(0)?.geo.flavor() {
+            match dgs[self.geo() as usize].as_ref().ok_or(0)?.geo.flavor() {
                 GeometryFlavor::Single => {
-                    dgs[self.geometry() as usize].as_ref().ok_or(0)?.get_disk(0).read_at((usize::try_from(self.loc())?+start/BLOCK_SIZE).try_into()?,data)
+                    dgs[self.geo() as usize].as_ref().ok_or(0)?.get_disk(0).read_at((usize::try_from(self.loc())?+start/BLOCK_SIZE).try_into()?,data)
                 },
                 _ => unimplemented!(),
             }
@@ -117,19 +112,18 @@ impl AMPointerGlobal {
     /// Writes to the referenced location
     #[cfg(feature="unstable")]
     pub fn write(self, start: usize, size: usize, dgs: &[Option<DiskGroup>], data: &[u8]) -> AMResult<usize> {
-        println!("Write: {},{}+{}",self.loc(),start,size);
         //Single whole block writes are atomic
         if start==0 && size==BLOCK_SIZE {
-            match dgs[self.geometry() as usize].as_ref().ok_or(0)?.geo.flavor() {
+            match dgs[self.geo() as usize].as_ref().ok_or(0)?.geo.flavor() {
                 GeometryFlavor::Single => {
-                    dgs[self.geometry() as usize].as_ref().ok_or(0)?.get_disk(0).write_at(self.loc(),data)
+                    dgs[self.geo() as usize].as_ref().ok_or(0)?.get_disk(0).write_at(self.loc(),data)
                 },
                 _ => unimplemented!(),
             }
         } else if start%BLOCK_SIZE == 0 && size == BLOCK_SIZE {
-            match dgs[self.geometry() as usize].as_ref().ok_or(0)?.geo.flavor() {
+            match dgs[self.geo() as usize].as_ref().ok_or(0)?.geo.flavor() {
                 GeometryFlavor::Single => {
-                    dgs[self.geometry() as usize].as_ref().ok_or(0)?.get_disk(0).write_at((usize::try_from(self.loc())?+start/BLOCK_SIZE).try_into()?,data)
+                    dgs[self.geo() as usize].as_ref().ok_or(0)?.get_disk(0).write_at((usize::try_from(self.loc())?+start/BLOCK_SIZE).try_into()?,data)
                 },
                 _ => unimplemented!(),
             }

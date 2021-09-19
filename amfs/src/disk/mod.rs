@@ -9,6 +9,13 @@ use std::cell::RefCell;
 #[derive(Clone)]
 pub struct Disk(pub Rc<RefCell<dyn DiskObj>>);
 
+impl std::fmt::Debug for Disk {
+    #[cfg(feature="unstable")]
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "Disk")
+    }
+}
+
 impl Disk {
     /// Reads a given block into the buffer.
     #[cfg(feature="stable")]

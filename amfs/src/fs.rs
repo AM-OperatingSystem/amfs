@@ -9,6 +9,8 @@ use std::convert::TryInto;
 #[derive(Debug)]
 pub struct AMFS {
     dgs: [Option<DiskGroup>;16],
+    disks: BTreeMap<u64,Disk>,
+    diskids: BTreeSet<u64>,
     superblocks: BTreeMap<u64,[Option<Superblock>;4]>,
     allocators: BTreeMap<u64,Allocator>,
     lock: Arc<RwLock<u8>>,
@@ -18,7 +20,14 @@ impl AMFS {
     /// Creates an AMFS object to mount the fs on a disk
     #[cfg(feature="unstable")]
     pub fn open(d: &[Disk]) -> AMResult<AMFS> {
-        let mut res = AMFS{dgs:Default::default(),superblocks:BTreeMap::new(),allocators:BTreeMap::new(),lock: Arc::new(RwLock::new(0))};
+        let mut res = AMFS{
+            dgs:Default::default(),
+            disks:BTreeMap::new(),
+            diskids:BTreeSet::new(),
+            superblocks:BTreeMap::new(),
+            allocators:BTreeMap::new(),
+            lock: Arc::new(RwLock::new(0)),
+        };
         let devids = res.load_superblocks(d)?;
         res.build_diskgroups(&devids,d)?;
         res.load_allocators()?;
@@ -29,9 +38,6 @@ impl AMFS {
     fn test_features(&self, features: BTreeSet<usize>) -> AMResult<bool> {
         Ok(self.get_superblock()?.test_features(features))
     }
-    /*fn get_geometry(&self, n: u8) -> Result<Geometry,u8> {
-        Ok(self.dg[n as usize].as_ref().unwrap().geo)
-    }*/
     #[cfg(feature="stable")]
     fn get_superblock(&self) -> AMResult<Superblock> {
         Ok(
@@ -74,6 +80,8 @@ impl AMFS {
                     let devid = hdr.devid();
                     info!("Superblock {:x}:{} OK",devid,i);
                     self.superblocks.entry(devid).or_insert([None;4])[i]=Some(hdr);
+                    self.disks.entry(devid).or_insert_with(|| d.clone());
+                    self.diskids.insert(devid);
                     disk_devid = Some(devid);
                 } else {
                     warn!("Superblock ?:{} corrupted",i);
@@ -114,10 +122,20 @@ impl AMFS {
         }
         Ok(())
     }
+    /// Gets the filesystem's allocator
+    #[cfg(feature="unstable")]
+    pub fn get_alloc(self) -> AMResult<Allocator> {
+        Ok(self.dgs[0].clone().ok_or(0)?.allocs[0].clone())
+    }
     /// Allocates a number of blocks in the filesystem
     #[cfg(feature="unstable")]
     pub fn alloc(&self, n: u64) -> AMResult<Option<AMPointerGlobal>> {
         Ok(Some(self.dgs[0].clone().ok_or(0)?.alloc(n)?))
+    }
+    /// Frees a number of blocks in the filesystem
+    #[cfg(feature="unstable")]
+    pub fn free(&self, _ptr: AMPointerGlobal) -> AMResult<()> {
+        unimplemented!()
     }
     /// Gets the filesystem's object tree
     #[cfg(feature="unstable")]
@@ -148,6 +166,30 @@ impl AMFS {
                 dg.sync()?
             }
         }
+        Ok(())
+    }
+    /// Write changes to disk
+    #[cfg(feature="unstable")]
+    pub fn commit(&mut self) -> AMResult<()> {
+        let lock = self.lock.clone();
+        let _handle = lock.write()?;
+        let mut dg = self.dgs[0].clone().ok_or(0)?;
+        let mut root_group = self.get_root_group()?;
+        let mut root_ptr = dg.alloc(1)?;
+        root_group.write_allocators(&mut [Some(dg.clone())], &mut self.allocators)?;
+        root_group.write(&[Some(dg)],&mut root_ptr)?;
+        // Write superblocks
+        for disk_id in &self.diskids {
+            for i in 0..4 {
+                if let Some(sb) = &mut self.superblocks.get_mut(disk_id).ok_or(0)?[i] {
+                    sb.latest_root += 1;
+                    sb.rootnodes[usize::from(sb.latest_root)] = root_ptr;
+                    let header_locs = self.disks[disk_id].get_header_locs()?;
+                    sb.write(self.disks[disk_id].clone(),header_locs[i])?;
+                }
+            }
+        }
+        self.sync()?;
         Ok(())
     }
 }

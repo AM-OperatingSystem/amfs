@@ -29,7 +29,7 @@ pub struct ObjectListHeader {
 impl ObjectListHeader {
     /// Create header from bytes
     #[cfg(feature="stable")]
-    pub fn from_bytes(buf: [u8;32]) -> ObjectListHeader {
+    pub fn from_bytes(buf: [u8;32]) -> Self {
         unsafe { std::ptr::read(buf.as_ptr() as *const _) }
     }
     /// Convert header to bytes
@@ -215,7 +215,7 @@ impl Object {
         }
         Ok(res.try_into()?)
     }
-    /// Reads the contents of an object from the disk
+    /// Fetches the size of the object
     #[cfg(feature="stable")]
     pub fn size(self) -> AMResult<u64> {
         let mut res = 0;
@@ -304,4 +304,5 @@ pub fn test_insert() {
     assert_eq!(buf,[0u8,1u8,2u8,0u8]);
     assert_eq!(fs.read_object(3,0,&mut buf[0..4]).unwrap(),4);
     assert_eq!(buf,[0u8,1u8,2u8,3u8]);
+    fs.commit().unwrap();
 }

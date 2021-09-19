@@ -3,12 +3,10 @@ use crate::{Geometry,GeometryFlavor,Disk,AMPointerGlobal,Allocator};
 use amos_std::AMResult;
 
 /// Represents a group of disks associated with a geometry
-#[derive(Derivative,Clone)]
-#[derivative(Debug)]
+#[derive(Debug,Clone)]
 pub struct DiskGroup {
     /// The group's geometry object
     pub geo: Geometry,
-    #[derivative(Debug="ignore")]
     disks: Vec<Disk>,
     pub(crate) allocs: Vec<Allocator>,
 }

@@ -1,11 +1,14 @@
-#![warn(missing_docs)]
 #![feature(assert_matches)]
 
+#![warn(missing_docs)]
 #![allow(clippy::collapsible_if)]
 #![allow(clippy::collapsible_else_if)]
 #![allow(clippy::manual_flatten)]
+#![allow(clippy::new_without_default)]
 #![warn(clippy::unwrap_used)]
+#![warn(clippy::print_stdout)]
 #![deny(clippy::cast_possible_truncation)]
+
 
 //! AMFS, AMOS Filesystem.
 
@@ -22,9 +25,6 @@ extern crate serial_test;
 
 #[macro_use]
 extern crate log;
-
-#[macro_use]
-extern crate derivative;
 
 #[macro_use]
 extern crate amfs_macros;

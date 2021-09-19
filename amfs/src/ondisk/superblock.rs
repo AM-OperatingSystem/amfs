@@ -18,8 +18,7 @@ use crc32fast::Hasher;
 use crate::{AMPointerGlobal,AMFeatures,Geometry,Disk,DiskGroup,FSGroup};
 
 #[repr(C)]
-#[derive(Derivative,Copy,Clone)]
-#[derivative(Debug)]
+#[derive(Debug,Copy,Clone)]
 /// A volume superblock. Contains volume-wide information
 pub struct Superblock {
     signature: [u8; 8],
@@ -27,7 +26,6 @@ pub struct Superblock {
     features: BitArr!(for 2048),
     pub(crate) geometries: [AMPointerLocal;16],
     checksum: u32,
-    #[derivative(Debug="ignore")]
     _padding: [u8; BLOCK_SIZE - 2581],
     pub(crate) latest_root: u8,
     pub(crate) rootnodes: [AMPointerGlobal;128],
@@ -115,7 +113,7 @@ impl Superblock {
     pub fn checksum(&self) -> u32 {
         self.checksum
     }
-    /// Getter for checksum
+    /// Getter for pointer to nth geometry
     #[cfg(feature="unstable")]
     pub fn geometries(&self, i:usize) -> AMPointerLocal {
         self.geometries[i]

@@ -8,22 +8,23 @@ use amos_std::AMResult;
 
 use crate::BLOCK_SIZE;
 
-#[repr(packed)]
+#[repr(C)]
 #[derive(Debug,Clone,Copy)]
 /// A group of filesystems.
 pub struct FSGroup {
     alloc: AMPointerGlobal,
+    free_queue: AMPointerGlobal,
     journal: AMPointerGlobal,
     /// A pointer to the root node of the object tree
     pub objects: AMPointerGlobal,
     directory: AMPointerGlobal,
     txid: u128,
-    _padding: [u8; BLOCK_SIZE - 80],
+    _padding: [u8; BLOCK_SIZE - 96],
 }
 
 #[repr(packed)]
 /// A list of allocators.
-#[derive(Clone,Copy)]
+#[derive(Clone,Copy,Debug)]
 pub struct AllocListEntry {
     disk_id: u64,
     allocator: AMPointerGlobal,
@@ -35,11 +36,12 @@ impl FSGroup {
     pub fn new() -> FSGroup {
         FSGroup {
             alloc: AMPointerGlobal::null(),
+            free_queue: AMPointerGlobal::null(),
             journal: AMPointerGlobal::null(),
             objects: AMPointerGlobal::null(),
             directory: AMPointerGlobal::null(),
             txid: 0,
-            _padding: [0; BLOCK_SIZE - 80],
+            _padding: [0; BLOCK_SIZE - 96],
         }
     }
     /// Gets this group's transaction ID
@@ -133,13 +135,12 @@ impl DerefMut for FSGroup {
     }
 }
 
-impl Default for FSGroup {
-    fn default() -> Self {
-        FSGroup::new()
-    }
-}
-
 #[test]
 fn size_test_group() {
     assert_eq!(mem::size_of::<FSGroup>(), BLOCK_SIZE);
+}
+
+#[test]
+fn size_test_ale() {
+    assert_eq!(mem::size_of::<AllocListEntry>(), 24);
 }

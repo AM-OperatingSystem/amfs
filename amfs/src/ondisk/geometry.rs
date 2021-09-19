@@ -19,12 +19,10 @@ pub enum GeometryFlavor {
 
 #[repr(packed)]
 /// Represents a particular arrangement of disks into a volume
-#[derive(Derivative,Copy,Clone)]
-#[derivative(Debug)]
+#[derive(Copy,Clone,Debug)]
 pub struct Geometry {
     ///The device IDs of each disk within the arrangement
     pub device_ids: [u64;256],
-    #[derivative(Debug="ignore")]
     _padding: [u8; BLOCK_SIZE - 2049],
     ///The arrangement of disks within the geometry
     pub flavor: GeometryFlavor,
@@ -80,12 +78,6 @@ impl DerefMut for Geometry {
             slice::from_raw_parts_mut(self as *mut Geometry as *mut u8, mem::size_of::<Geometry>())
                 as &mut [u8]
         }
-    }
-}
-
-impl Default for Geometry {
-    fn default() -> Self {
-        Geometry::new()
     }
 }
 
