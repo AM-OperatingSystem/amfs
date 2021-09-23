@@ -7,7 +7,7 @@ use amfs_macros::*;
 use amfs_tests::imagegen::generators::*;
 
 #[test_fs]
-fn test_0000_err_signature() {
+fn test_err_signature() {
     use amfs::Superblock;
 
     generate_image!(0);
@@ -19,7 +19,7 @@ fn test_0000_err_signature() {
     }
 }
 #[test_fs]
-fn test_0001_err_checksum() {
+fn test_err_checksum() {
     use amfs::Superblock;
 
     generate_image!(1);
@@ -32,7 +32,7 @@ fn test_0001_err_checksum() {
 }
 
 #[test_fs]
-fn test_0002_err_diskids() {
+fn test_err_diskids() {
     use amfs::Superblock;
 
     generate_image!(2);
@@ -45,7 +45,7 @@ fn test_0002_err_diskids() {
 }
 
 #[test_fs]
-fn test_0003_okay() {
+fn test_okay() {
     use amfs::Superblock;
 
     generate_image!(3);
