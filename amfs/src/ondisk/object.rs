@@ -1,5 +1,5 @@
 
-use crate::{AMPointerGlobal,DiskGroup};
+use crate::{AMPointerGlobal,DiskGroup,AMFS};
 
 use crate::BLOCK_SIZE;
 
@@ -52,7 +52,7 @@ impl ObjectSet {
     }
     /// Gets the object with a given ID
     #[cfg(feature="stable")]
-    pub fn get_object(&self, id: u64) -> AMResult<Option<Object>> {
+    pub(crate) fn get_object(&self, id: u64) -> AMResult<Option<Object>> {
         let mut ptr = self.ptr;
         loop {
             if ptr.is_null() { break; }
@@ -87,7 +87,7 @@ impl ObjectSet {
     }
     /// Gets all objects in the filesystem
     #[cfg(feature="stable")]
-    pub fn get_objects(&self) -> AMResult<BTreeMap<u64,Object>> {
+    pub(crate) fn get_objects(&self) -> AMResult<BTreeMap<u64,Object>> {
         let mut res = BTreeMap::new();
         let mut ptr = self.ptr;
         loop {
@@ -137,18 +137,33 @@ impl ObjectSet {
                     }
                     idx+=1;
                 }
-                if id == header.start_idx+header.n_entries {
+                if id == header.start_idx+header.n_entries { // We're appending an object
                     header.n_entries+=1;
-                    let obj_size = std::mem::size_of::<Fragment>()*obj.frags.len() + 4;
+                    let obj_size = std::mem::size_of::<Fragment>()*obj.frags.len() + 8;
                     if pos + obj_size < BLOCK_SIZE {
                         // No action needed, we're at the right spot
                     } else {
                         // We need to allocate a new block
                         unimplemented!();
                     }
-                } else {
+                } else { // We're updating an object
                     assert_lt!(id,header.start_idx+header.n_entries);
-                    unimplemented!();
+                    let obj_size = std::mem::size_of::<Fragment>()*obj.frags.len() + 8;
+                    let mut i = pos;
+                    loop {
+                        if u64::from_le_bytes(blk[i..i+8].try_into().or(Err(0))?) == 0 {
+                            i+=8;
+                            break;
+                        }
+                        i+=32;
+                    }
+                    let slot_size = i-pos;
+                    if obj_size == slot_size {
+                        // No action needed, the new object is the same size
+                    } else {
+                        // We need to rearrange the list
+                        unimplemented!();
+                    }
                 }
                 for frag in &obj.frags {
                     blk[pos..pos+32].copy_from_slice(frag.to_bytes());
@@ -167,6 +182,14 @@ impl ObjectSet {
         }
         Ok(())
     }
+    /// Gets the size of an object
+    pub fn size_object(&self, id: u64) -> AMResult<u64> {
+        self.get_object(id)?.ok_or(0)?.size()
+    }
+    /// Reads the contents of an object
+    pub fn read_object(&self, id: u64,start:u64,data:&mut [u8],dgs:&[Option<DiskGroup>]) -> AMResult<u64> {
+        self.get_object(id)?.ok_or(0)?.read(start,data,dgs)
+    }
 }
 
 /// Represents one file or meta-file on disk
@@ -178,7 +201,7 @@ pub struct Object {
 impl Object {
     /// Reads the contents of an object from the disk
     #[cfg(feature="stable")]
-    pub fn read(&self,start:u64,data:&mut [u8],dgs:&[Option<DiskGroup>]) -> AMResult<u64> {
+    fn read(&self,start:u64,data:&mut [u8],dgs:&[Option<DiskGroup>]) -> AMResult<u64> {
         let mut res = 0;
         let mut pos = 0;
         for f in &self.frags {
@@ -195,9 +218,9 @@ impl Object {
         }
         Ok(res.try_into()?)
     }
-    /// Reads the contents of an object from the disk
+    /// Writes the contents of an object to the disk
     #[cfg(feature="unstable")]
-    pub fn write(&mut self,start:u64,data:&[u8],dgs:&[Option<DiskGroup>]) -> AMResult<u64> {
+    pub(crate) fn write(&mut self,handle: &mut AMFS,start:u64,data:&[u8],dgs:&[Option<DiskGroup>]) -> AMResult<u64> {
         let mut res = 0;
         let mut pos = 0;
         for f in &mut self.frags {
@@ -207,6 +230,7 @@ impl Object {
                 if slice_end>f.size {
                     unimplemented!();
                 } else {
+                    f.pointer = handle.realloc(f.pointer)?.ok_or(0)?;
                     res+=f.pointer.write(slice_start.try_into()?, data.len(), dgs, data)?;
                     f.pointer.update(dgs)?;
                 }
@@ -217,7 +241,7 @@ impl Object {
     }
     /// Fetches the size of the object
     #[cfg(feature="stable")]
-    pub fn size(self) -> AMResult<u64> {
+    fn size(self) -> AMResult<u64> {
         let mut res = 0;
         for f in self.frags {
             res+=f.size;
@@ -280,12 +304,17 @@ pub fn test_object() {
 pub fn test_insert() {
     crate::test::logging::init_log();
 
-    let mut fs = crate::test::fsinit::create_fs().unwrap();
+    let fs = crate::test::fsinit::create_fs().unwrap();
 
-    fs.get_objects().unwrap().set_object(0,Object{frags:vec![Fragment{size:1,offset:0,pointer:fs.alloc(1).unwrap().unwrap()}]}).unwrap();
-    fs.get_objects().unwrap().set_object(1,Object{frags:vec![Fragment{size:2,offset:0,pointer:fs.alloc(1).unwrap().unwrap()}]}).unwrap();
-    fs.get_objects().unwrap().set_object(2,Object{frags:vec![Fragment{size:3,offset:0,pointer:fs.alloc(1).unwrap().unwrap()}]}).unwrap();
-    fs.get_objects().unwrap().set_object(3,Object{frags:vec![Fragment{size:4,offset:0,pointer:fs.alloc(1).unwrap().unwrap()}]}).unwrap();
+    let a1 = fs.write().unwrap().alloc(1).unwrap().unwrap();
+    let a2 = fs.write().unwrap().alloc(1).unwrap().unwrap();
+    let a3 = fs.write().unwrap().alloc(1).unwrap().unwrap();
+    let a4 = fs.write().unwrap().alloc(1).unwrap().unwrap();
+
+    fs.write().unwrap().get_objects_mut().unwrap().set_object(0,Object{frags:vec![Fragment{size:1,offset:0,pointer:a1}]}).unwrap();
+    fs.write().unwrap().get_objects_mut().unwrap().set_object(1,Object{frags:vec![Fragment{size:2,offset:0,pointer:a2}]}).unwrap();
+    fs.write().unwrap().get_objects_mut().unwrap().set_object(2,Object{frags:vec![Fragment{size:3,offset:0,pointer:a3}]}).unwrap();
+    fs.write().unwrap().get_objects_mut().unwrap().set_object(3,Object{frags:vec![Fragment{size:4,offset:0,pointer:a4}]}).unwrap();
     fs.sync().unwrap();
     assert_eq!(fs.size_object(0).unwrap(),1);
     assert_eq!(fs.size_object(1).unwrap(),2);

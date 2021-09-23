@@ -5,6 +5,7 @@ use std::collections::BTreeMap;
 
 use crate::{AMPointerGlobal,DiskGroup,Allocator,LinkedListGlobal};
 use amos_std::AMResult;
+use amos_std::error::{AMErrorFS};
 
 use crate::BLOCK_SIZE;
 
@@ -72,7 +73,9 @@ impl FSGroup {
     /// Reads a FSGroup from the disk group
     #[cfg(feature="unstable")]
     pub fn read(dgs: &[Option<DiskGroup>], ptr: AMPointerGlobal) -> AMResult<FSGroup> {
-        assert!(!ptr.is_null());
+        if ptr.is_null() {
+            return Err(AMErrorFS::NullPointer.into());
+        }
         
         let mut res: FSGroup = FSGroup::new();
         ptr.read(0,BLOCK_SIZE,dgs, &mut res)?;

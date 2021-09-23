@@ -5,16 +5,13 @@
 #![allow(clippy::collapsible_else_if)]
 #![allow(clippy::manual_flatten)]
 #![allow(clippy::new_without_default)]
+#![allow(clippy::upper_case_acronyms)]
 #![warn(clippy::unwrap_used)]
 #![warn(clippy::print_stdout)]
 #![deny(clippy::cast_possible_truncation)]
 
 
 //! AMFS, AMOS Filesystem.
-
-#[allow(unused_imports)]
-#[macro_use]
-extern crate ntest;
 
 #[macro_use]
 extern crate more_asserts;
@@ -35,9 +32,11 @@ pub const BLOCK_SIZE: usize = 4096;
 /// The filesystem's signature. Appears at the start of top-level headers.
 pub const SIGNATURE: &[u8; 8] = b"amosAMFS";
 
-pub use self::fs::AMFS;
+pub use self::fs::FSHandle;
 pub use self::disk::{Disk,DiskFile,DiskMem,DiskGroup};
 pub use self::features::AMFeatures;
+
+use self::fs::AMFS;
 
 pub use self::ondisk::*;
 
@@ -47,7 +46,8 @@ mod features;
 
 mod ondisk;
 
-mod test;
+/// Functions useful for testing
+pub mod test;
 
 /// Creates a filesystem on one or more disks.
 pub mod mkfs;

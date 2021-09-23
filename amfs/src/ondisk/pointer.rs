@@ -65,6 +65,12 @@ impl AMPointerGlobal {
         assert!(!self.is_null());
         self.0.geometry
     }
+    /// Gets the length of the pointer
+    #[cfg(feature="stable")]
+    pub fn length(&self) -> u8 {
+        assert!(!self.is_null());
+        self.0.len
+    }
     /// Reads from the referenced location
     #[cfg(feature="unstable")]
     pub fn read(self, start: usize, size: usize, dgs: &[Option<DiskGroup>], data: &mut [u8]) -> AMResult<usize> {

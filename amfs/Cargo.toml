@@ -18,7 +18,6 @@ log4rs="1.0.0"
 derivative = "2.2.0"
 more-asserts="0.2.1"
 serial_test = "0.5.1"
-ntest = "0.7.3"
 amfs-macros = { path = "../amfs-macros" }
 amos-std = { path = "../../amos-std" }
 

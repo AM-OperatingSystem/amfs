@@ -1,9 +1,64 @@
-use std::sync::{Arc,RwLock};
-use std::collections::{BTreeSet,BTreeMap};
-use crate::{Superblock,Disk,DiskGroup,Allocator,FSGroup,ObjectSet,AMPointerGlobal};
+use std::sync::{Arc,RwLock,RwLockWriteGuard,RwLockReadGuard};
+use std::collections::{BTreeSet,BTreeMap,VecDeque};
+use crate::{Superblock,Disk,DiskGroup,Allocator,FSGroup,ObjectSet,AMPointerGlobal,JournalEntry};
+use crate::features::AMFeatures;
 use amos_std::AMResult;
 use amos_std::error::AMErrorFS;
 use std::convert::TryInto;
+
+/// A handle to a disk
+#[derive(Clone,Debug)]
+pub struct FSHandle(Arc<RwLock<AMFS>>);
+
+impl FSHandle {
+    /// Creates an AMFS object to mount the fs on a disk
+    pub fn open(d: &[Disk]) -> AMResult<Self> {
+        Ok(Self{0:Arc::new(RwLock::new(AMFS::open(d)?))})
+    }
+    /// Write changes to disk
+    #[cfg(feature="unstable")]
+    pub fn commit(&self) -> AMResult<()> {
+        self.write()?.commit()
+    }
+    /// Reads the object corresponding to a given ID
+    #[cfg(feature="stable")]
+    pub fn read_object(&self, id: u64,start:u64,data:&mut [u8]) -> AMResult<u64> {
+        self.read()?.read_object(id,start,data)
+    }
+    /// Gets the size of the object corresponding to a given ID
+    #[cfg(feature="stable")]
+    pub fn size_object(&self, id: u64) -> AMResult<u64> {
+        self.read()?.size_object(id)
+    }
+    /// Writes to the object corresponding to a given ID
+    #[cfg(feature="unstable")]
+    pub fn write_object(&self, id: u64,start:u64,data:&[u8]) -> AMResult<u64> {
+        self.write()?.write_object(id,start,data)
+    }
+    /// Syncs the disks
+    #[cfg(feature="stable")]
+    pub fn sync(&self) -> AMResult<()> {
+        self.write()?.sync()
+    }
+    /// Allocates a n-block chunk
+    pub(crate) fn alloc(&mut self, n: u64) -> AMResult<Option<AMPointerGlobal>> {
+        self.write()?.alloc(n)
+    }
+    /// Reallocates a pointer
+    pub(crate) fn realloc(&mut self, ptr: AMPointerGlobal) -> AMResult<Option<AMPointerGlobal>> {
+        self.write()?.realloc(ptr)
+    }
+    /// Frees a pointer
+    pub(crate) fn free(&mut self, ptr: AMPointerGlobal) -> AMResult<()> {
+        self.write()?.free(ptr)
+    }
+    pub(crate) fn write(&self) -> AMResult<RwLockWriteGuard<AMFS>> {
+        Ok(self.0.write()?)
+    }
+    pub(crate) fn read(&self) -> AMResult<RwLockReadGuard<AMFS>> {
+        Ok(self.0.read()?)
+    }
+}
 
 /// Object used for mounting a filesystem
 #[derive(Debug)]
@@ -14,12 +69,13 @@ pub struct AMFS {
     superblocks: BTreeMap<u64,[Option<Superblock>;4]>,
     allocators: BTreeMap<u64,Allocator>,
     lock: Arc<RwLock<u8>>,
+    journal: VecDeque<JournalEntry>,
+    objects: Option<ObjectSet>,
 }
 
 impl AMFS {
-    /// Creates an AMFS object to mount the fs on a disk
     #[cfg(feature="unstable")]
-    pub fn open(d: &[Disk]) -> AMResult<AMFS> {
+    fn open(d: &[Disk]) -> AMResult<AMFS> {
         let mut res = AMFS{
             dgs:Default::default(),
             disks:BTreeMap::new(),
@@ -27,11 +83,15 @@ impl AMFS {
             superblocks:BTreeMap::new(),
             allocators:BTreeMap::new(),
             lock: Arc::new(RwLock::new(0)),
+            journal:VecDeque::new(),
+            objects: None,
         };
         let devids = res.load_superblocks(d)?;
         res.build_diskgroups(&devids,d)?;
         res.load_allocators()?;
-        assert!(res.test_features(crate::AMFeatures::current_set())?);
+        assert!(res.test_features(AMFeatures::current_set())?);
+        let obj_ptr = res.get_root_group()?.get_obj_ptr();
+        res.objects = Some(ObjectSet::read(res.dgs.clone(),obj_ptr)?);
         Ok(res)
     }
     #[cfg(feature="stable")]
@@ -122,45 +182,70 @@ impl AMFS {
         }
         Ok(())
     }
-    /// Gets the filesystem's allocator
     #[cfg(feature="unstable")]
-    pub fn get_alloc(self) -> AMResult<Allocator> {
-        Ok(self.dgs[0].clone().ok_or(0)?.allocs[0].clone())
+    pub(crate) fn alloc(&mut self, n: u64) -> AMResult<Option<AMPointerGlobal>> {
+        let lock = self.lock.clone();
+        let _handle = lock.read()?;
+
+        let res = self.dgs[0].clone().ok_or(0)?.alloc(n)?;
+        self.journal.push_back(JournalEntry::Alloc(res));
+
+        Ok(Some(res))
     }
-    /// Allocates a number of blocks in the filesystem
     #[cfg(feature="unstable")]
-    pub fn alloc(&self, n: u64) -> AMResult<Option<AMPointerGlobal>> {
-        Ok(Some(self.dgs[0].clone().ok_or(0)?.alloc(n)?))
+    pub(crate) fn realloc(&mut self, ptr: AMPointerGlobal) -> AMResult<Option<AMPointerGlobal>> {
+        let lock = self.lock.clone();
+        let _handle = lock.read()?;
+
+        let n = ptr.length();
+        let new_ptr = if let Some(p) = self.alloc(n.into())? {
+            p
+        } else {
+            return Ok(None);
+        };
+        let contents = ptr.read_vec(&self.dgs)?;
+        new_ptr.write(0,contents.len(),&self.dgs,&contents)?;
+        self.free(ptr)?;
+        Ok(Some(new_ptr))
     }
-    /// Frees a number of blocks in the filesystem
     #[cfg(feature="unstable")]
-    pub fn free(&self, _ptr: AMPointerGlobal) -> AMResult<()> {
-        unimplemented!()
+    pub(crate) fn free(&mut self, ptr: AMPointerGlobal) -> AMResult<()> {
+        let lock = self.lock.clone();
+        let _handle = lock.read()?;
+
+        self.journal.push_back(JournalEntry::Free(ptr));
+
+        Ok(())
     }
-    /// Gets the filesystem's object tree
     #[cfg(feature="unstable")]
-    pub fn get_objects(&self) -> AMResult<ObjectSet> {
-        let obj_ptr = self.get_root_group()?.get_obj_ptr();
-        ObjectSet::read(self.dgs.clone(),obj_ptr)
+    pub(crate) fn get_objects(&self) -> AMResult<&ObjectSet> {
+        Ok(self.objects.as_ref().expect("PANIC"))
     }
-    /// Reads the object corresponding to a given ID
+    #[cfg(feature="unstable")]
+    pub(crate) fn get_objects_mut(&mut self) -> AMResult<&mut ObjectSet> {
+        Ok(self.objects.as_mut().expect("PANIC"))
+    }
     #[cfg(feature="stable")]
-    pub fn read_object(&self, id: u64,start:u64,data:&mut [u8]) -> AMResult<u64> {
-        self.get_objects()?.get_object(id)?.ok_or(0)?.read(start,data,&self.dgs)
+    fn read_object(&self, id: u64,start:u64,data:&mut [u8]) -> AMResult<u64> {
+        self.get_objects()?.read_object(id,start,data,&self.dgs)
+    }
+    /// Gets the size of the object corresponding to a given ID
+    #[cfg(feature="stable")]
+    fn size_object(&self, id: u64) -> AMResult<u64> {
+        self.get_objects()?.size_object(id)
     }
     /// Writes to the object corresponding to a given ID
     #[cfg(feature="unstable")]
-    pub fn write_object(&self, id: u64,start:u64,data:&[u8]) -> AMResult<u64> {
-        self.get_objects()?.get_object(id)?.ok_or(0)?.write(start,data,&self.dgs)
-    }
-    /// Writes to the object corresponding to a given ID
-    #[cfg(feature="stable")]
-    pub fn size_object(&self, id: u64) -> AMResult<u64> {
-        self.get_objects()?.get_object(id)?.ok_or(0)?.size()
+    fn write_object(&mut self, id: u64,start:u64,data:&[u8]) -> AMResult<u64> {
+        let dgs = &self.dgs.clone();
+        let mut obj = self.get_objects()?.get_object(id)?.ok_or(0)?;
+        let res = obj.write(self,start,data,dgs)?;
+        self.get_objects_mut()?.set_object(id, obj)?;
+        Ok(res)
     }
     /// Syncs the disks
     #[cfg(feature="stable")]
-    pub fn sync(&mut self) -> AMResult<()> {
+    fn sync(&mut self) -> AMResult<()> {
         for i in &mut self.dgs {
             if let Some(dg) = i {
                 dg.sync()?
@@ -168,9 +253,7 @@ impl AMFS {
         }
         Ok(())
     }
-    /// Write changes to disk
-    #[cfg(feature="unstable")]
-    pub fn commit(&mut self) -> AMResult<()> {
+    fn commit(&mut self) -> AMResult<()> {
         let lock = self.lock.clone();
         let _handle = lock.write()?;
         let mut dg = self.dgs[0].clone().ok_or(0)?;
