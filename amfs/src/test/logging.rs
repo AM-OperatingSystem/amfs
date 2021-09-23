@@ -13,11 +13,11 @@ pub fn init_log() {
 
         let stdout = ConsoleAppender::builder().build();
         let config = Config::builder()
-        .appender(Appender::builder().build("stdout", Box::new(stdout)))
-        .build(Root::builder().appender("stdout").build(LevelFilter::Debug))
-        .unwrap();
+            .appender(Appender::builder().build("stdout", Box::new(stdout)))
+            .build(Root::builder().appender("stdout").build(LevelFilter::Debug))
+            .unwrap();
 
         log4rs::init_config(config).unwrap();
-        *lock=1;
+        *lock = 1;
     }
 }

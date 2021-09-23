@@ -1,7 +1,7 @@
 #![allow(unknown_lints)]
 #![allow(require_stability_comment)]
 
-use proc_macro::{TokenStream};
+use proc_macro::TokenStream;
 
 use proc_macro2::{Ident, Span};
 
@@ -13,9 +13,12 @@ extern crate quote;
 pub fn generate_image(input: TokenStream) -> TokenStream {
     let item: syn::LitInt = syn::parse(input).expect("failed to parse input");
     let num_to_gen = item.base10_parse::<usize>().unwrap();
-    let filename = format!("test_{:04}.img",num_to_gen);
-    let generate_fn = Ident::new(format!("generate_{:04}", num_to_gen).as_str() , Span::call_site());
-    let output = quote!{
+    let filename = format!("test_{:04}.img", num_to_gen);
+    let generate_fn = Ident::new(
+        format!("generate_{:04}", num_to_gen).as_str(),
+        Span::call_site(),
+    );
+    let output = quote! {
         use std::fs::OpenOptions;
         let file = OpenOptions::new().read(true).write(true).create(true).open(#filename).unwrap();
 
@@ -40,8 +43,8 @@ pub fn generate_image(input: TokenStream) -> TokenStream {
 pub fn load_image(input: TokenStream) -> TokenStream {
     let item: syn::LitInt = syn::parse(input).expect("failed to parse input");
     let num_to_gen = item.base10_parse::<usize>().unwrap();
-    let filename = format!("test_{:04}.img",num_to_gen);
-    let output = quote!{
+    let filename = format!("test_{:04}.img", num_to_gen);
+    let output = quote! {
         DiskFile::open(#filename).unwrap()
     };
     output.into()
@@ -51,10 +54,10 @@ pub fn load_image(input: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn assert_or_err(input: TokenStream) -> TokenStream {
     let params = syn::parse_macro_input!(input with syn::punctuated::Punctuated<syn::Expr, syn::Token![,]>::parse_separated_nonempty);
-    assert_eq!(params.len(),2);
+    assert_eq!(params.len(), 2);
     let test = &params[0];
     let error = &params[1];
-    let output = quote!{
+    let output = quote! {
         if (!(#test)) {
             return Err(#error.into());
         }
@@ -69,7 +72,7 @@ pub fn test_fs(_: TokenStream, item: TokenStream) -> TokenStream {
     //panic!("{:#?}",input_fn);
     let input_sig = input_fn.sig.clone();
     let input_blk = input_fn.block.stmts.clone();
-    let output = quote!{
+    let output = quote! {
         #[test]
         #input_sig {
             amfs_tests::logging::init_log();

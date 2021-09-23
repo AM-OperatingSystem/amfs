@@ -1,4 +1,4 @@
-use crate::{AMPointerGlobal};
+use crate::AMPointerGlobal;
 
 /// A journal entry stores the information necessary to recreate a fs operation.
 #[derive(Debug)]

@@ -3,9 +3,9 @@ use amfs::Allocator;
 #[test]
 fn basic() {
     let a = Allocator::new(1024);
-    assert_eq!(a.used_space(),0);
-    assert_eq!(a.free_space(),1024);
-    assert_eq!(a.total_space(),1024);
+    assert_eq!(a.used_space(), 0);
+    assert_eq!(a.free_space(), 1024);
+    assert_eq!(a.total_space(), 1024);
 }
 
 #[test]
@@ -13,8 +13,8 @@ fn alloc() {
     let mut a = Allocator::new(1024);
     let blk = a.alloc(2);
     assert!(blk != None);
-    assert_eq!(a.used_space(),2);
-    assert_eq!(a.free_space(),1022);
+    assert_eq!(a.used_space(), 2);
+    assert_eq!(a.free_space(), 1022);
 }
 
 #[test]
@@ -22,8 +22,8 @@ fn free() {
     let mut a = Allocator::new(1024);
     let blk = a.alloc(2);
     a.free(blk.unwrap());
-    assert_eq!(a.used_space(),0);
-    assert_eq!(a.free_space(),1024);
+    assert_eq!(a.used_space(), 0);
+    assert_eq!(a.free_space(), 1024);
 }
 
 #[test]
@@ -51,14 +51,14 @@ fn alloc_frag() {
 #[test]
 fn mark_used() {
     let mut a = Allocator::new(1024);
-    a.mark_used(0,1).unwrap();
-    a.mark_used(1,1).unwrap();
-    a.mark_used(1023,1).unwrap();
-    a.mark_used(1022,1).unwrap();
-    a.mark_used(510,2).unwrap();
-    a.mark_used(512,2).unwrap();
-    a.mark_used(2,508).unwrap();
-    a.mark_used(514,508).unwrap();
+    a.mark_used(0, 1).unwrap();
+    a.mark_used(1, 1).unwrap();
+    a.mark_used(1023, 1).unwrap();
+    a.mark_used(1022, 1).unwrap();
+    a.mark_used(510, 2).unwrap();
+    a.mark_used(512, 2).unwrap();
+    a.mark_used(2, 508).unwrap();
+    a.mark_used(514, 508).unwrap();
     let blk = a.alloc(1);
     assert!(blk == None);
     a.free(0);
