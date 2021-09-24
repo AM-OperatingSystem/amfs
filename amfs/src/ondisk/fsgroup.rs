@@ -18,9 +18,9 @@ pub struct FSGroup {
     journal: AMPointerGlobal,
     /// A pointer to the root node of the object tree
     pub objects: AMPointerGlobal,
-    directory: AMPointerGlobal,
+    directory: u64,
     txid: u128,
-    _padding: [u8; BLOCK_SIZE - 96],
+    _padding: [u8; BLOCK_SIZE - 92],
 }
 
 #[repr(packed)]
@@ -40,9 +40,9 @@ impl FSGroup {
             free_queue: AMPointerGlobal::null(),
             journal: AMPointerGlobal::null(),
             objects: AMPointerGlobal::null(),
-            directory: AMPointerGlobal::null(),
+            directory: 0,
             txid: 0,
-            _padding: [0; BLOCK_SIZE - 96],
+            _padding: [0; BLOCK_SIZE - 92],
         }
     }
     /// Gets this group's transaction ID
@@ -65,9 +65,9 @@ impl FSGroup {
     pub fn journal(&self) -> AMPointerGlobal {
         self.journal
     }
-    /// Gets a pointer to this group's directory tree
+    /// Gets the object index of this group's directory tree
     #[cfg(feature = "unstable")]
-    pub fn directory(&self) -> AMPointerGlobal {
+    pub fn directory(&self) -> u64 {
         self.directory
     }
     /// Reads a FSGroup from the disk group

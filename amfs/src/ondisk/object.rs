@@ -50,6 +50,10 @@ impl ObjectSet {
     pub fn read(dgs: [Option<DiskGroup>; 16], ptr: AMPointerGlobal) -> AMResult<ObjectSet> {
         Ok(ObjectSet { ptr, dgs })
     }
+    /// Checks the existance of an object with a given ID
+    pub fn exists_object(&self, id: u64) -> AMResult<bool> {
+        Ok(self.get_object(id)?.is_some())
+    }
     /// Gets the object with a given ID
     #[cfg(feature = "stable")]
     pub(crate) fn get_object(&self, id: u64) -> AMResult<Option<Object>> {
@@ -301,6 +305,14 @@ impl Object {
             pos += f.size;
         }
         Ok(res.try_into()?)
+    }
+    pub(crate) fn truncate(
+        &mut self,
+        handle: &mut AMFS,
+        size: u64,
+        dgs: &[Option<DiskGroup>],
+    ) -> AMResult<()> {
+        unimplemented!();
     }
     /// Fetches the size of the object
     #[cfg(feature = "stable")]

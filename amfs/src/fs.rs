@@ -40,6 +40,11 @@ impl FSHandle {
     pub fn write_object(&self, id: u64, start: u64, data: &[u8]) -> AMResult<u64> {
         self.write()?.write_object(id, start, data)
     }
+    /// Writes to the object corresponding to a given ID
+    #[cfg(feature = "unstable")]
+    pub fn create_object(&self, id: u64, size: u64) -> AMResult<()> {
+        self.write()?.create_object(id, size)
+    }
     /// Syncs the disks
     #[cfg(feature = "stable")]
     pub fn sync(&self) -> AMResult<()> {
@@ -249,6 +254,18 @@ impl AMFS {
     fn size_object(&self, id: u64) -> AMResult<u64> {
         self.get_objects()?.size_object(id)
     }
+    /// Truncates the object corresponding to a given ID
+    #[cfg(feature = "stable")]
+    fn truncate_object(&mut self, id: u64, len: u64) -> AMResult<()> {
+        assert!(self.get_objects()?.exists_object(id)?);
+        let dgs = &self.dgs.clone();
+        let mut obj = self.get_objects()?.get_object(id)?.ok_or(0)?;
+        obj.truncate(self, len, dgs)?;
+        let objs = self.get_objects()?.clone();
+        let objs = objs.set_object(self, id, obj)?;
+        *self.get_objects_mut()? = objs;
+        Ok(())
+    }
     /// Writes to the object corresponding to a given ID
     #[cfg(feature = "unstable")]
     fn write_object(&mut self, id: u64, start: u64, data: &[u8]) -> AMResult<u64> {
@@ -259,6 +276,17 @@ impl AMFS {
         let objs = objs.set_object(self, id, obj)?;
         *self.get_objects_mut()? = objs;
         Ok(res)
+    }
+    /// Writes to the object corresponding to a given ID
+    #[cfg(feature = "unstable")]
+    fn create_object(&mut self, id: u64, size: u64) -> AMResult<()> {
+        let ptr = self.alloc(1)?.ok_or(0)?;
+        let frag = Fragment::new(size, 0, ptr);
+        let obj = Object::new(&[frag]);
+        let objs = self.get_objects()?.clone();
+        let objs = objs.set_object(self, id, obj)?;
+        *self.get_objects_mut()? = objs;
+        Ok(())
     }
     /// Syncs the disks
     #[cfg(feature = "stable")]
