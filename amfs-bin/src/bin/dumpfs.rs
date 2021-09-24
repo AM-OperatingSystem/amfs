@@ -196,12 +196,8 @@ fn print_fsgroup(idx: usize, buf: [u8; BLOCK_SIZE], g: FSGroup, _d: &DiskGroup) 
         g.objects(),
     );
     println!();
-    print_hex_ptr_global(
-        idx * BLOCK_SIZE + 3,
-        &buf[0x10 * (3)..],
-        "directory".to_string(),
-        g.directory(),
-    );
+    print_hex(idx * BLOCK_SIZE + 3, &buf[0x10 * (3)..]);
+    print!("directory:{}", g.directory());
     println!();
 }
 fn print_alloclist(idx: usize, buf: [u8; BLOCK_SIZE]) {
@@ -275,17 +271,11 @@ fn print_alloc(idx: usize, buf: [u8; BLOCK_SIZE]) {
 fn print_objs(idx: usize, buf: [u8; BLOCK_SIZE], _o: ObjectSet, _d: &DiskGroup) {
     println!("ObjectSet:");
     let hdr = unsafe { u8_slice_as_any::<ObjectListHeader>(&buf) };
-    print_hex_ptr_global(
-        idx * BLOCK_SIZE + 0,
-        &buf[0x10 * (0)..],
-        "next".to_string(),
-        hdr.next,
-    );
     println!();
-    print_hex(idx * BLOCK_SIZE + 1, &buf[0x10 * 1..]);
+    print_hex(idx * BLOCK_SIZE, &buf[0..]);
     print!("start:{} count:{}", hdr.start_idx, hdr.n_entries);
     println!();
-    let mut pos = 32;
+    let mut pos = std::mem::size_of::<ObjectListHeader>();
     for _ in 0..usize::try_from(hdr.n_entries).unwrap() {
         loop {
             let blkof = pos / 16;
@@ -308,7 +298,7 @@ fn print_objs(idx: usize, buf: [u8; BLOCK_SIZE], _o: ObjectSet, _d: &DiskGroup) 
                 *ptr,
             );
             println!();
-            pos += 32;
+            pos += std::mem::size_of::<Fragment>();
         }
     }
 }

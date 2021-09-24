@@ -1,6 +1,7 @@
 use crate::features::AMFeatures;
 use crate::{
-    AMPointerGlobal, Allocator, Disk, DiskGroup, FSGroup, JournalEntry, ObjectSet, Superblock,
+    AMPointerGlobal, Allocator, Disk, DiskGroup, FSGroup, Fragment, JournalEntry, Object,
+    ObjectSet, Superblock,
 };
 use amos_std::error::AMErrorFS;
 use amos_std::AMResult;
@@ -254,7 +255,9 @@ impl AMFS {
         let dgs = &self.dgs.clone();
         let mut obj = self.get_objects()?.get_object(id)?.ok_or(0)?;
         let res = obj.write(self, start, data, dgs)?;
-        self.get_objects_mut()?.set_object(id, obj)?;
+        let objs = self.get_objects()?.clone();
+        let objs = objs.set_object(self, id, obj)?;
+        *self.get_objects_mut()? = objs;
         Ok(res)
     }
     /// Syncs the disks
@@ -272,6 +275,7 @@ impl AMFS {
         let _handle = lock.write()?;
         let mut dg = self.dgs[0].clone().ok_or(0)?;
         let mut root_group = self.get_root_group()?;
+        root_group.objects = self.get_objects()?.ptr;
         let mut root_ptr = dg.alloc(1)?;
         root_group.write_allocators(&mut [Some(dg.clone())], &mut self.allocators)?;
         root_group.write(&[Some(dg)], &mut root_ptr)?;

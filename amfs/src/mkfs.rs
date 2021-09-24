@@ -37,9 +37,10 @@ pub fn mkfs_single(mut d: Disk) -> AMResult<()> {
     }
     //Create disk group
     let mut dg = DiskGroup::single(geom, d.clone(), free.clone());
-    //Write root group
+    //Create root group
     let mut root_group = FSGroup::new();
     root_group.objects = dg.alloc(1)?;
+    //Write root group
     let mut amap = BTreeMap::new();
     amap.insert(devid, free);
     let mut root_ptr = dg.alloc(1)?;

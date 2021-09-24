@@ -6,19 +6,20 @@ use amos_std::AMResult;
 
 use std::convert::{TryFrom, TryInto};
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, VecDeque};
+
+pub const LIST_HEADER_SIZE: usize = 16;
+pub const FRAGMENT_SIZE: usize = 32;
 
 /// An object set- the on-disk format to store the set of all objects.
 #[derive(Clone, Debug)]
 pub struct ObjectSet {
-    ptr: AMPointerGlobal,
+    pub(crate) ptr: AMPointerGlobal,
     dgs: [Option<DiskGroup>; 16],
 }
 
 /// Header for object list
 pub struct ObjectListHeader {
-    /// Next block in object list
-    pub next: AMPointerGlobal,
     /// Index of first object in this list
     pub start_idx: u64,
     /// Number of objects in this list
@@ -28,7 +29,7 @@ pub struct ObjectListHeader {
 impl ObjectListHeader {
     /// Create header from bytes
     #[cfg(feature = "stable")]
-    pub fn from_bytes(buf: [u8; 32]) -> Self {
+    pub fn from_bytes(buf: [u8; LIST_HEADER_SIZE]) -> Self {
         unsafe { std::ptr::read(buf.as_ptr() as *const _) }
     }
     /// Convert header to bytes
@@ -52,38 +53,45 @@ impl ObjectSet {
     /// Gets the object with a given ID
     #[cfg(feature = "stable")]
     pub(crate) fn get_object(&self, id: u64) -> AMResult<Option<Object>> {
-        let mut ptr = self.ptr;
+        let mut to_process = VecDeque::new();
+        to_process.push_back(self.ptr);
         loop {
-            if ptr.is_null() {
+            let ptr = to_process.pop_front();
+            if ptr.is_none() {
                 break;
             }
+            let ptr = ptr.expect("PANIC");
             let blk = ptr.read_vec(&self.dgs)?;
-            let header = ObjectListHeader::from_bytes(blk[..32].try_into().or(Err(0))?);
-            ptr = header.next;
-            if header.start_idx <= id {
-                let mut pos = 32;
-                let mut idx = header.start_idx;
-                while idx < id {
+            let header =
+                ObjectListHeader::from_bytes(blk[..LIST_HEADER_SIZE].try_into().or(Err(0))?);
+            if header.n_entries & 0x8000000000000000 != 0 {
+                unimplemented!();
+            } else {
+                if header.start_idx <= id {
+                    let mut pos = std::mem::size_of::<ObjectListHeader>();
+                    let mut idx = header.start_idx;
+                    while idx < id {
+                        loop {
+                            if u64::from_le_bytes(blk[pos..pos + 8].try_into().or(Err(0))?) == 0 {
+                                pos += 8;
+                                break;
+                            }
+                            pos += FRAGMENT_SIZE;
+                            idx += 1;
+                        }
+                    }
+                    let mut frags = Vec::new();
                     loop {
                         if u64::from_le_bytes(blk[pos..pos + 8].try_into().or(Err(0))?) == 0 {
-                            pos += 8;
                             break;
                         }
-                        pos += 32;
-                        idx += 1;
+                        frags.push(Fragment::from_bytes(
+                            blk[pos..pos + FRAGMENT_SIZE].try_into().or(Err(0))?,
+                        ));
+                        pos += FRAGMENT_SIZE;
                     }
+                    return Ok(Some(Object { frags }));
                 }
-                let mut frags = Vec::new();
-                loop {
-                    if u64::from_le_bytes(blk[pos..pos + 8].try_into().or(Err(0))?) == 0 {
-                        break;
-                    }
-                    frags.push(Fragment::from_bytes(
-                        blk[pos..pos + 32].try_into().or(Err(0))?,
-                    ));
-                    pos += 32;
-                }
-                return Ok(Some(Object { frags }));
             }
         }
         Ok(None)
@@ -92,111 +100,128 @@ impl ObjectSet {
     #[cfg(feature = "stable")]
     pub(crate) fn get_objects(&self) -> AMResult<BTreeMap<u64, Object>> {
         let mut res = BTreeMap::new();
-        let mut ptr = self.ptr;
+        let mut to_process = VecDeque::new();
+        to_process.push_back(self.ptr);
         loop {
-            if ptr.is_null() {
+            let ptr = to_process.pop_front();
+            if ptr.is_none() {
                 break;
             }
+            let ptr = ptr.expect("PANIC");
             let blk = ptr.read_vec(&self.dgs)?;
-            let header = ObjectListHeader::from_bytes(blk[..32].try_into().or(Err(0))?);
-            ptr = header.next;
+            let header =
+                ObjectListHeader::from_bytes(blk[..LIST_HEADER_SIZE].try_into().or(Err(0))?);
             let mut pos = std::mem::size_of::<ObjectListHeader>();
             let idx = header.start_idx;
-            for i in idx..idx + header.n_entries {
-                let mut frags = Vec::new();
-                loop {
-                    if u64::from_le_bytes(blk[pos..pos + 8].try_into().or(Err(0))?) == 0 {
-                        pos += 8;
-                        break;
+            if header.n_entries & 0x8000000000000000 != 0 {
+                unimplemented!();
+            } else {
+                for i in idx..idx + header.n_entries {
+                    let mut frags = Vec::new();
+                    loop {
+                        if u64::from_le_bytes(blk[pos..pos + 8].try_into().or(Err(0))?) == 0 {
+                            pos += 8;
+                            break;
+                        }
+                        frags.push(Fragment::from_bytes(
+                            blk[pos..pos + FRAGMENT_SIZE].try_into().or(Err(0))?,
+                        ));
+                        pos += FRAGMENT_SIZE;
                     }
-                    frags.push(Fragment::from_bytes(
-                        blk[pos..pos + 32].try_into().or(Err(0))?,
-                    ));
-                    pos += 32;
+                    res.insert(i, Object { frags });
                 }
-                res.insert(i, Object { frags });
             }
         }
         Ok(res)
     }
     /// Updates or inserts an object
     #[cfg(feature = "unstable")]
-    pub fn set_object(&mut self, id: u64, obj: Object) -> AMResult<()> {
-        let mut _ptr_prev = AMPointerGlobal::null();
-        let mut ptr = self.ptr;
-        if ptr.is_null() {
-            unimplemented!();
-        }
+    pub fn set_object(&self, fs: &mut AMFS, id: u64, obj: Object) -> AMResult<ObjectSet> {
+        let mut res = self.clone();
+        let mut to_process = VecDeque::new();
+        to_process.push_back(self.ptr);
+        let mut parents = vec![self.ptr];
         loop {
-            if ptr.is_null() {
-                return Err(0.into());
-            }
-            let mut blk = ptr.read_vec(&self.dgs)?;
-            let mut header = ObjectListHeader::from_bytes(blk[..32].try_into().or(Err(0))?);
-            if header.start_idx <= id {
-                let mut pos = 32;
-                let mut idx = header.start_idx;
-                while idx < id {
-                    loop {
-                        if u64::from_le_bytes(blk[pos..pos + 8].try_into().or(Err(0))?) == 0 {
-                            pos += 8;
-                            break;
-                        }
-                        pos += 32;
-                    }
-                    idx += 1;
-                }
-                if id == header.start_idx + header.n_entries {
-                    // We're appending an object
-                    header.n_entries += 1;
-                    let obj_size = std::mem::size_of::<Fragment>() * obj.frags.len() + 8;
-                    if pos + obj_size < BLOCK_SIZE {
-                        // No action needed, we're at the right spot
-                    } else {
-                        // We need to allocate a new block
-                        unimplemented!();
-                    }
-                } else {
-                    // We're updating an object
-                    assert_lt!(id, header.start_idx + header.n_entries);
-                    let obj_size = std::mem::size_of::<Fragment>() * obj.frags.len() + 8;
-                    let mut i = pos;
-                    loop {
-                        if u64::from_le_bytes(blk[i..i + 8].try_into().or(Err(0))?) == 0 {
-                            i += 8;
-                            break;
-                        }
-                        i += 32;
-                    }
-                    let slot_size = i - pos;
-                    if obj_size == slot_size {
-                        // No action needed, the new object is the same size
-                    } else {
-                        // We need to rearrange the list
-                        unimplemented!();
-                    }
-                }
-                for frag in &obj.frags {
-                    blk[pos..pos + 32].copy_from_slice(frag.to_bytes());
-                    pos += 32;
-                }
-                blk[pos..pos + 4].copy_from_slice(&[0u8; 4]);
-                blk[..32].copy_from_slice(header.to_bytes());
-                ptr.write(0, blk.len(), &self.dgs, &blk)?;
-                ptr.update(&self.dgs)?;
+            let ptr = to_process.pop_front();
+            if ptr.is_none() {
                 break;
-            } else {
-                println!(
-                    "{}-{} {}",
-                    header.start_idx,
-                    header.start_idx + header.n_entries,
-                    id
-                );
             }
-            _ptr_prev = ptr;
-            ptr = header.next;
+            let ptr = ptr.expect("PANIC");
+            let mut blk = ptr.read_vec(&self.dgs)?;
+            let mut header =
+                ObjectListHeader::from_bytes(blk[..LIST_HEADER_SIZE].try_into().or(Err(0))?);
+            if header.n_entries & 0x8000000000000000 != 0 {
+                unimplemented!();
+            } else {
+                if header.start_idx <= id {
+                    let mut pos = LIST_HEADER_SIZE;
+                    let mut idx = header.start_idx;
+                    while idx < id {
+                        loop {
+                            if u64::from_le_bytes(blk[pos..pos + 8].try_into().or(Err(0))?) == 0 {
+                                pos += 8;
+                                break;
+                            }
+                            pos += FRAGMENT_SIZE;
+                        }
+                        idx += 1;
+                    }
+                    if id == header.start_idx + header.n_entries {
+                        // We're appending an object
+                        header.n_entries += 1;
+                        let obj_size = FRAGMENT_SIZE * obj.frags.len() + 8;
+                        if pos + obj_size < BLOCK_SIZE {
+                            // No action needed, we're at the right spot
+                        } else {
+                            // We need to allocate a new block
+                            unimplemented!();
+                        }
+                    } else {
+                        // We're updating an object
+                        assert_lt!(id, header.start_idx + header.n_entries);
+                        let obj_size = std::mem::size_of::<Fragment>() * obj.frags.len() + 8;
+                        let mut i = pos;
+                        loop {
+                            if u64::from_le_bytes(blk[i..i + 8].try_into().or(Err(0))?) == 0 {
+                                i += 8;
+                                break;
+                            }
+                            i += FRAGMENT_SIZE;
+                        }
+                        let slot_size = i - pos;
+                        if obj_size == slot_size {
+                            // No action needed, the new object is the same size
+                        } else {
+                            // We need to rearrange the list
+                            unimplemented!();
+                        }
+                    }
+                    for frag in &obj.frags {
+                        blk[pos..pos + FRAGMENT_SIZE].copy_from_slice(frag.to_bytes());
+                        pos += FRAGMENT_SIZE;
+                    }
+                    blk[pos..pos + 4].copy_from_slice(&[0u8; 4]);
+                    blk[..LIST_HEADER_SIZE].copy_from_slice(header.to_bytes());
+
+                    let mut ptr = fs.realloc(ptr)?.ok_or(0)?;
+                    for _w in parents.windows(2) {
+                        unimplemented!();
+                    }
+                    ptr.write(0, blk.len(), &self.dgs, &blk)?;
+                    ptr.update(&self.dgs)?;
+                    res.ptr = ptr;
+                    break;
+                } else {
+                    println!(
+                        "{}-{} {}",
+                        header.start_idx,
+                        header.start_idx + header.n_entries,
+                        id
+                    );
+                }
+            }
         }
-        Ok(())
+        Ok(res)
     }
     /// Gets the size of an object
     pub fn size_object(&self, id: u64) -> AMResult<u64> {
@@ -221,6 +246,12 @@ pub struct Object {
 }
 
 impl Object {
+    /// Create a new object from a list of fragments
+    pub fn new(frags: &[Fragment]) -> Object {
+        Object {
+            frags: frags.to_vec(),
+        }
+    }
     /// Reads the contents of an object from the disk
     #[cfg(feature = "stable")]
     fn read(&self, start: u64, data: &mut [u8], dgs: &[Option<DiskGroup>]) -> AMResult<u64> {
@@ -282,7 +313,8 @@ impl Object {
     }
 }
 
-#[derive(Debug, PartialEq)]
+/// A single contiguous fragment of a file
+#[derive(Debug, PartialEq, Clone)]
 #[repr(C)]
 pub struct Fragment {
     size: u64,
@@ -291,10 +323,20 @@ pub struct Fragment {
 }
 
 impl Fragment {
+    /// Creates a new fragment
+    pub fn new(size: u64, offset: u64, pointer: AMPointerGlobal) -> Fragment {
+        Fragment {
+            size,
+            offset,
+            pointer,
+        }
+    }
+    /// Initializes a fragment from a slice of bytes
     #[cfg(feature = "stable")]
-    pub fn from_bytes(buf: [u8; 32]) -> Fragment {
+    pub fn from_bytes(buf: [u8; FRAGMENT_SIZE]) -> Fragment {
         unsafe { std::ptr::read(buf.as_ptr() as *const _) }
     }
+    /// Converts a fragment to a slice of bytes
     #[cfg(feature = "stable")]
     pub fn to_bytes(&self) -> &[u8] {
         unsafe {
@@ -309,13 +351,13 @@ impl Fragment {
 #[test]
 fn list_header_size_test() {
     use std::mem;
-    assert_eq!(mem::size_of::<ObjectListHeader>(), 32);
+    assert_eq!(mem::size_of::<ObjectListHeader>(), LIST_HEADER_SIZE);
 }
 
 #[test]
 fn list_fragment_size_test() {
     use std::mem;
-    assert_eq!(mem::size_of::<Fragment>(), 32);
+    assert_eq!(mem::size_of::<Fragment>(), FRAGMENT_SIZE);
 }
 
 #[test]
@@ -338,71 +380,10 @@ pub fn test_insert() {
 
     let fs = crate::test::fsinit::create_fs().unwrap();
 
-    let a1 = fs.write().unwrap().alloc(1).unwrap().unwrap();
-    let a2 = fs.write().unwrap().alloc(1).unwrap().unwrap();
-    let a3 = fs.write().unwrap().alloc(1).unwrap().unwrap();
-    let a4 = fs.write().unwrap().alloc(1).unwrap().unwrap();
-
-    fs.write()
-        .unwrap()
-        .get_objects_mut()
-        .unwrap()
-        .set_object(
-            0,
-            Object {
-                frags: vec![Fragment {
-                    size: 1,
-                    offset: 0,
-                    pointer: a1,
-                }],
-            },
-        )
-        .unwrap();
-    fs.write()
-        .unwrap()
-        .get_objects_mut()
-        .unwrap()
-        .set_object(
-            1,
-            Object {
-                frags: vec![Fragment {
-                    size: 2,
-                    offset: 0,
-                    pointer: a2,
-                }],
-            },
-        )
-        .unwrap();
-    fs.write()
-        .unwrap()
-        .get_objects_mut()
-        .unwrap()
-        .set_object(
-            2,
-            Object {
-                frags: vec![Fragment {
-                    size: 3,
-                    offset: 0,
-                    pointer: a3,
-                }],
-            },
-        )
-        .unwrap();
-    fs.write()
-        .unwrap()
-        .get_objects_mut()
-        .unwrap()
-        .set_object(
-            3,
-            Object {
-                frags: vec![Fragment {
-                    size: 4,
-                    offset: 0,
-                    pointer: a4,
-                }],
-            },
-        )
-        .unwrap();
+    fs.create_object(0, 1).unwrap();
+    fs.create_object(1, 2).unwrap();
+    fs.create_object(2, 3).unwrap();
+    fs.create_object(3, 4).unwrap();
     fs.sync().unwrap();
     assert_eq!(fs.size_object(0).unwrap(), 1);
     assert_eq!(fs.size_object(1).unwrap(), 2);

@@ -9,7 +9,6 @@ use amfs_tests::imagegen::generators::*;
 #[test_fs]
 fn test_missing_rootgroup() {
     use amfs::test;
-    use amfs::DiskGroup;
     use amfs::Superblock;
 
     generate_image!(3);
