@@ -31,7 +31,7 @@ impl Allocator {
     }
     /// Allocates a contiguous space of a given size
     #[cfg(feature = "stable")]
-    pub fn alloc(&mut self, size: u64) -> Option<u64> {
+    pub fn alloc_blocks(&mut self, size: u64) -> Option<u64> {
         self.0.borrow_mut().alloc(size)
     }
     /// Allocates several blocks, not necessarily contiguous

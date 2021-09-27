@@ -1,6 +1,8 @@
-use crate::{AMPointerGlobal, Allocator, Disk, Geometry, GeometryFlavor};
+use crate::{AMPointerGlobal, Allocator, Disk, Geometry, GeometryFlavor, Fragment};
+use crate::BLOCK_SIZE;
 use amos_std::AMResult;
 use std::collections::BTreeMap;
+use std::convert::{TryFrom,TryInto};
 
 /// Represents a group of disks associated with a geometry
 #[derive(Debug, Clone)]
@@ -59,11 +61,30 @@ impl DiskGroup {
     }
     /// Allocates a block
     #[cfg(feature = "unstable")]
-    pub fn alloc(&mut self, n: u64) -> AMResult<AMPointerGlobal> {
+    pub fn alloc_blocks(&mut self, n: u64) -> AMResult<AMPointerGlobal> {
         Ok(match self.geo.flavor() {
             GeometryFlavor::Single => {
-                let ptr = self.allocs[0].alloc(n).ok_or(0)?;
+                let ptr = self.allocs[0].alloc_blocks(n).ok_or(0)?;
                 AMPointerGlobal::new(ptr, 1, 0, 0)
+            }
+            _ => unimplemented!(),
+        })
+    }
+    /// Allocates a block
+    #[cfg(feature = "unstable")]
+    pub fn alloc_bytes(&mut self, n: u64) -> AMResult<Vec<Fragment>> {
+        Ok(match self.geo.flavor() {
+            GeometryFlavor::Single => {
+                let mut res = Vec::new();
+                let mut size_rem = usize::try_from(n)?;
+                loop {
+                    let ptr = self.allocs[0].alloc_blocks(1).ok_or(0)?;
+                    let size_frag = if size_rem>BLOCK_SIZE { BLOCK_SIZE } else { size_rem };
+                    res.push(Fragment::new(size_frag.try_into()?,0,AMPointerGlobal::new(ptr, 1, 0, 0)));
+                    if size_rem <= BLOCK_SIZE { break; }
+                    size_rem -= BLOCK_SIZE;
+                }
+                res
             }
             _ => unimplemented!(),
         })

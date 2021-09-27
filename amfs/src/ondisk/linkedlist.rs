@@ -72,7 +72,7 @@ impl<T: Copy + std::fmt::Debug> LinkedListGlobal<Vec<T>> for Vec<T> {
         };
 
         let mut blockptrs = (0..blks)
-            .map(|_| dg.as_mut().ok_or(0)?.alloc(1))
+            .map(|_| dg.as_mut().ok_or(0)?.alloc_blocks(1))
             .collect::<AMResult<Vec<AMPointerGlobal>>>()?;
         blockptrs.push(AMPointerGlobal::null());
         let mut headers: Vec<LLGHeader> = (0..blks)

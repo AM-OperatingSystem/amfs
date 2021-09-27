@@ -30,7 +30,7 @@ pub fn mkfs_single(mut d: Disk) -> AMResult<()> {
     geom.device_ids[0] = devid;
     for sb in &mut sbs {
         //Create geometry
-        let geo_ptr = free.alloc(1).ok_or(0)?;
+        let geo_ptr = free.alloc_blocks(1).ok_or(0)?;
         let geo_ptr = geom.write(d.clone(), AMPointerLocal::new(geo_ptr))?;
 
         sb.geometries[0] = geo_ptr;
@@ -39,11 +39,11 @@ pub fn mkfs_single(mut d: Disk) -> AMResult<()> {
     let mut dg = DiskGroup::single(geom, d.clone(), free.clone());
     //Create root group
     let mut root_group = FSGroup::new();
-    root_group.objects = dg.alloc(1)?;
+    root_group.objects = dg.alloc_blocks(1)?;
     //Write root group
     let mut amap = BTreeMap::new();
     amap.insert(devid, free);
-    let mut root_ptr = dg.alloc(1)?;
+    let mut root_ptr = dg.alloc_blocks(1)?;
     root_group.write_allocators(&mut [Some(dg.clone())], &mut amap)?;
     root_group.write(&[Some(dg)], &mut root_ptr)?;
     for sb in &mut sbs {

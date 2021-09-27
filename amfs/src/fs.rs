@@ -45,14 +45,19 @@ impl FSHandle {
     pub fn create_object(&self, id: u64, size: u64) -> AMResult<()> {
         self.write()?.create_object(id, size)
     }
+    /// Truncates the object corresponding to a given ID
+    #[cfg(feature = "unstable")]
+    pub fn truncate_object(&self, id: u64, size: u64) -> AMResult<()> {
+        self.write()?.truncate_object(id, size)
+    }
     /// Syncs the disks
     #[cfg(feature = "stable")]
     pub fn sync(&self) -> AMResult<()> {
         self.write()?.sync()
     }
     /// Allocates a n-block chunk
-    pub(crate) fn alloc(&mut self, n: u64) -> AMResult<Option<AMPointerGlobal>> {
-        self.write()?.alloc(n)
+    pub(crate) fn alloc_blocks(&mut self, n: u64) -> AMResult<Option<AMPointerGlobal>> {
+        self.write()?.alloc_blocks(n)
     }
     /// Reallocates a pointer
     pub(crate) fn realloc(&mut self, ptr: AMPointerGlobal) -> AMResult<Option<AMPointerGlobal>> {
@@ -203,14 +208,24 @@ impl AMFS {
         Ok(())
     }
     #[cfg(feature = "unstable")]
-    pub(crate) fn alloc(&mut self, n: u64) -> AMResult<Option<AMPointerGlobal>> {
+    pub(crate) fn alloc_blocks(&mut self, n: u64) -> AMResult<Option<AMPointerGlobal>> {
         let lock = self.lock.clone();
         let _handle = lock.read()?;
 
-        let res = self.dgs[0].clone().ok_or(0)?.alloc(n)?;
+        let res = self.dgs[0].clone().ok_or(0)?.alloc_blocks(n)?;
         self.journal.push_back(JournalEntry::Alloc(res));
 
         Ok(Some(res))
+    }
+    #[cfg(feature = "unstable")]
+    pub(crate) fn alloc_bytes(&mut self, n: u64) -> AMResult<Vec<Fragment>> {
+        let lock = self.lock.clone();
+        let _handle = lock.read()?;
+
+        let res = self.dgs[0].clone().ok_or(0)?.alloc_bytes(n)?;
+        //TODO: self.journal.push_back(JournalEntry::Alloc(res));
+
+        Ok(res)
     }
     #[cfg(feature = "unstable")]
     pub(crate) fn realloc(&mut self, ptr: AMPointerGlobal) -> AMResult<Option<AMPointerGlobal>> {
@@ -218,7 +233,7 @@ impl AMFS {
         let _handle = lock.read()?;
 
         let n = ptr.length();
-        let new_ptr = if let Some(p) = self.alloc(n.into())? {
+        let new_ptr = if let Some(p) = self.alloc_blocks(n.into())? {
             p
         } else {
             return Ok(None);
@@ -280,7 +295,7 @@ impl AMFS {
     /// Writes to the object corresponding to a given ID
     #[cfg(feature = "unstable")]
     fn create_object(&mut self, id: u64, size: u64) -> AMResult<()> {
-        let ptr = self.alloc(1)?.ok_or(0)?;
+        let ptr = self.alloc_blocks(1)?.ok_or(0)?;
         let frag = Fragment::new(size, 0, ptr);
         let obj = Object::new(&[frag]);
         let objs = self.get_objects()?.clone();
@@ -304,7 +319,7 @@ impl AMFS {
         let mut dg = self.dgs[0].clone().ok_or(0)?;
         let mut root_group = self.get_root_group()?;
         root_group.objects = self.get_objects()?.ptr;
-        let mut root_ptr = dg.alloc(1)?;
+        let mut root_ptr = dg.alloc_blocks(1)?;
         root_group.write_allocators(&mut [Some(dg.clone())], &mut self.allocators)?;
         root_group.write(&[Some(dg)], &mut root_ptr)?;
         // Write superblocks
