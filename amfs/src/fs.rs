@@ -114,7 +114,7 @@ impl AMFS {
         Ok(self.get_superblock()?.test_features(features))
     }
     #[cfg(feature = "stable")]
-    fn get_superblock(&self) -> AMResult<Superblock> {
+    pub(crate) fn get_superblock(&self) -> AMResult<Superblock> {
         Ok(self
             .superblocks
             .values()
