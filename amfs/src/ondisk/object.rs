@@ -154,13 +154,16 @@ impl ObjectSet {
             let mut blk = ptr.read_vec(&self.dgs)?;
             let mut header =
                 ObjectListHeader::from_bytes(blk[..LIST_HEADER_SIZE].try_into().or(Err(0))?);
-            if header.n_entries & 0x8000000000000000 != 0 { //If the high bit is set, this is an indirect block.
+            if header.n_entries & 0x8000000000000000 != 0 {
+                //If the high bit is set, this is an indirect block.
                 unimplemented!();
             } else {
-                if header.start_idx <= id { //We're in the block containing the object to update
+                if header.start_idx <= id {
+                    //We're in the block containing the object to update
                     let mut pos = LIST_HEADER_SIZE;
                     let mut idx = header.start_idx;
-                    while idx < id {    //Scan forward until we're at the start of the object to update
+                    while idx < id {
+                        //Scan forward until we're at the start of the object to update
                         loop {
                             if u64::from_le_bytes(blk[pos..pos + 8].try_into().or(Err(0))?) == 0 {
                                 pos += 8;
@@ -170,7 +173,8 @@ impl ObjectSet {
                         }
                         idx += 1;
                     }
-                    if id == header.start_idx + header.n_entries {  // We're appending an object
+                    if id == header.start_idx + header.n_entries {
+                        // We're appending an object
                         header.n_entries += 1;
                         let obj_size = FRAGMENT_SIZE * obj.frags.len() + 8;
                         if pos + obj_size < BLOCK_SIZE {
@@ -179,7 +183,8 @@ impl ObjectSet {
                             // We need to allocate a new block
                             unimplemented!();
                         }
-                    } else {  // We're updating an object
+                    } else {
+                        // We're updating an object
                         assert_lt!(id, header.start_idx + header.n_entries);
                         // Calculate the size of the new object
                         let obj_size = std::mem::size_of::<Fragment>() * obj.frags.len() + 8;
@@ -204,7 +209,8 @@ impl ObjectSet {
                             // Scan forward to the end of the last object in the block
                             while idx < (header.start_idx + header.n_entries) - 1 {
                                 loop {
-                                    if u64::from_le_bytes(blk[j..j + 8].try_into().or(Err(0))?) == 0 {
+                                    if u64::from_le_bytes(blk[j..j + 8].try_into().or(Err(0))?) == 0
+                                    {
                                         j += 8;
                                         break;
                                     }
@@ -218,13 +224,23 @@ impl ObjectSet {
                                 // We need to spill into a new block
                                 unimplemented!();
                             } else {
-                                blk.copy_within(i..j,i+size_diff);
+                                blk.copy_within(i..j, i + size_diff);
                             }
-                            println!("i:{} si:{} ne:{} p:{} i:{} j:{} sd:{} nl:{}",idx,header.start_idx,header.n_entries,pos,i,j,size_diff,i+size_diff);
+                            println!(
+                                "i:{} si:{} ne:{} p:{} i:{} j:{} sd:{} nl:{}",
+                                idx,
+                                header.start_idx,
+                                header.n_entries,
+                                pos,
+                                i,
+                                j,
+                                size_diff,
+                                i + size_diff
+                            );
                             //unimplemented!();
                         }
                     }
-                    println!("{}",pos);
+                    println!("{}", pos);
                     for frag in &obj.frags {
                         blk[pos..pos + FRAGMENT_SIZE].copy_from_slice(frag.to_bytes());
                         pos += FRAGMENT_SIZE;
@@ -233,7 +249,7 @@ impl ObjectSet {
 
                     pos += 8;
 
-                    println!("{}",pos);
+                    println!("{}", pos);
 
                     blk[..LIST_HEADER_SIZE].copy_from_slice(header.to_bytes());
 
@@ -245,7 +261,8 @@ impl ObjectSet {
                     ptr.update(&self.dgs)?;
                     res.ptr = ptr;
                     return Ok(res);
-                } else { //We're not in the right block, keep searching
+                } else {
+                    //We're not in the right block, keep searching
                     println!(
                         "{}-{} {}",
                         header.start_idx,
@@ -295,20 +312,37 @@ impl Object {
         let end = start + u64::try_from(data.len())?;
         for f in &self.frags {
             let frag_end = frag_start + f.size;
-            if frag_start >= end {break}
+            if frag_start >= end {
+                break;
+            }
             if frag_end > start {
-                let frag_read_start = if frag_start < start {start - frag_start} else {0};
-                let buf_read_start = if frag_start < start {0} else {frag_start - start}.try_into()?;
+                let frag_read_start = if frag_start < start {
+                    start - frag_start
+                } else {
+                    0
+                };
+                let buf_read_start = if frag_start < start {
+                    0
+                } else {
+                    frag_start - start
+                }
+                .try_into()?;
                 let read_len = if frag_start < start && frag_end > end {
-                    end-start
+                    end - start
                 } else if frag_start < start {
-                    frag_end-start
+                    frag_end - start
                 } else if frag_end > end {
-                    end-frag_start
+                    end - frag_start
                 } else {
                     f.size
-                }.try_into()?;
-                res += f.pointer.read(frag_read_start.try_into()?, read_len, dgs, &mut data[buf_read_start..buf_read_start+read_len])?;
+                }
+                .try_into()?;
+                res += f.pointer.read(
+                    frag_read_start.try_into()?,
+                    read_len,
+                    dgs,
+                    &mut data[buf_read_start..buf_read_start + read_len],
+                )?;
             }
             frag_start = frag_end;
         }
@@ -358,24 +392,27 @@ impl Object {
             }
         } else {
             let mut cur_size = self.size()?;
-            if size<cur_size {
+            if size < cur_size {
                 // We want to shrink
                 while let Some(lf) = self.frags.last_mut() {
-                    if cur_size - lf.size > size {  // Dropping a fragment leaves us too big, continue
+                    if cur_size - lf.size > size {
+                        // Dropping a fragment leaves us too big, continue
                         cur_size -= lf.size;
                         self.frags.pop();
                         //TODO: Free the fragment
-                    } else if cur_size - lf.size == size {    // Dropping a fragment leaves us the right size
+                    } else if cur_size - lf.size == size {
+                        // Dropping a fragment leaves us the right size
                         self.frags.pop();
                         //TODO: Free the fragment
                         break;
-                    } else {    // Shrinking a fragment leaves us the right size
-                        lf.size = cur_size-size;
+                    } else {
+                        // Shrinking a fragment leaves us the right size
+                        lf.size = cur_size - size;
                         break;
                     }
                 }
             } else {
-                let mut new_frags = handle.alloc_bytes(size-self.size()?)?;
+                let mut new_frags = handle.alloc_bytes(size - self.size()?)?;
                 self.frags.append(&mut new_frags);
             }
         }
@@ -502,13 +539,13 @@ pub fn test_truncate() {
     let mut buf = [0u8; 8];
     assert_eq!(fs.read_object(0, 0, &mut buf[0..8]).unwrap(), 8);
     assert_eq!(buf, [0u8, 1u8, 2u8, 3u8, 4u8, 5u8, 6u8, 7u8]);
-    fs.truncate_object(0,4).unwrap();
+    fs.truncate_object(0, 4).unwrap();
     assert_eq!(fs.size_object(0).unwrap(), 4);
     let mut buf = [0u8; 4];
     assert_eq!(fs.read_object(0, 0, &mut buf[0..4]).unwrap(), 4);
     assert_eq!(buf, [0u8, 1u8, 2u8, 3u8]);
     fs.commit().unwrap();
-    fs.truncate_object(0,16).unwrap();
+    fs.truncate_object(0, 16).unwrap();
     assert_eq!(fs.size_object(0).unwrap(), 16);
     let mut buf = [0u8; 16];
     assert_eq!(fs.read_object(0, 0, &mut buf[0..16]).unwrap(), 16);

@@ -1,4 +1,4 @@
-use crate::mkfs::mkfs_single;
+use crate::operations::mkfs_single;
 use crate::{DiskFile, FSHandle};
 use amos_std::AMResult;
 

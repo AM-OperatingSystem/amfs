@@ -49,8 +49,8 @@ mod ondisk;
 /// Functions useful for testing
 pub mod test;
 
-/// Creates a filesystem on one or more disks.
-pub mod mkfs;
+/// Implementation for several utilites: fsck,mkfs,etc...
+pub mod operations;
 
 /// Documentation-only module
 pub mod doc;

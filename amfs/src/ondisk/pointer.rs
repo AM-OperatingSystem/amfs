@@ -3,11 +3,18 @@ use crate::{Disk, DiskGroup, GeometryFlavor};
 use amos_std::AMResult;
 use crc32fast::Hasher;
 use std::convert::{TryFrom, TryInto};
+use std::fmt;
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 #[repr(C)]
 /// AMFS local pointer. Valid within one disk.
 pub struct AMPointerLocal(pub(crate) AMPointer);
+
+impl fmt::Display for AMPointerLocal {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Local({})", self.loc())
+    }
+}
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 #[repr(C)]
