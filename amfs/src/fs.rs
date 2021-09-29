@@ -15,6 +15,7 @@ pub struct FSHandle(Arc<RwLock<AMFS>>);
 
 impl FSHandle {
     /// Creates an AMFS object to mount the fs on a disk
+    #[cfg(feature = "unstable")]
     pub fn open(d: &[Disk]) -> AMResult<Self> {
         Ok(Self {
             0: Arc::new(RwLock::new(AMFS::open(d)?)),
@@ -56,20 +57,25 @@ impl FSHandle {
         self.write()?.sync()
     }
     /// Allocates a n-block chunk
+    #[cfg(feature = "stable")]
     pub(crate) fn alloc_blocks(&mut self, n: u64) -> AMResult<Option<AMPointerGlobal>> {
         self.write()?.alloc_blocks(n)
     }
     /// Reallocates a pointer
+    #[cfg(feature = "stable")]
     pub(crate) fn realloc(&mut self, ptr: AMPointerGlobal) -> AMResult<Option<AMPointerGlobal>> {
         self.write()?.realloc(ptr)
     }
     /// Frees a pointer
+    #[cfg(feature = "stable")]
     pub(crate) fn free(&mut self, ptr: AMPointerGlobal) -> AMResult<()> {
         self.write()?.free(ptr)
     }
+    #[cfg(feature = "stable")]
     pub(crate) fn write(&self) -> AMResult<RwLockWriteGuard<AMFS>> {
         Ok(self.0.write()?)
     }
+    #[cfg(feature = "stable")]
     pub(crate) fn read(&self) -> AMResult<RwLockReadGuard<AMFS>> {
         Ok(self.0.read()?)
     }
@@ -313,6 +319,7 @@ impl AMFS {
         }
         Ok(())
     }
+    #[cfg(feature = "unstable")]
     fn commit(&mut self) -> AMResult<()> {
         let lock = self.lock.clone();
         let _handle = lock.write()?;

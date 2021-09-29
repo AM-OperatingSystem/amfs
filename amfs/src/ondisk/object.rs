@@ -51,6 +51,7 @@ impl ObjectSet {
         Ok(ObjectSet { ptr, dgs })
     }
     /// Checks the existance of an object with a given ID
+    #[cfg(feature = "stable")]
     pub fn exists_object(&self, id: u64) -> AMResult<bool> {
         Ok(self.get_object(id)?.is_some())
     }
@@ -276,10 +277,12 @@ impl ObjectSet {
         panic!();
     }
     /// Gets the size of an object
+    #[cfg(feature = "stable")]
     pub fn size_object(&self, id: u64) -> AMResult<u64> {
         self.get_object(id)?.ok_or(0)?.size()
     }
     /// Reads the contents of an object
+    #[cfg(feature = "stable")]
     pub fn read_object(
         &self,
         id: u64,
@@ -299,6 +302,7 @@ pub struct Object {
 
 impl Object {
     /// Create a new object from a list of fragments
+    #[cfg(feature = "stable")]
     pub fn new(frags: &[Fragment]) -> Object {
         Object {
             frags: frags.to_vec(),
@@ -377,6 +381,7 @@ impl Object {
         }
         Ok(res.try_into()?)
     }
+    #[cfg(feature = "unstable")]
     pub(crate) fn truncate(
         &mut self,
         handle: &mut AMFS,
@@ -440,6 +445,7 @@ pub struct Fragment {
 
 impl Fragment {
     /// Creates a new fragment
+    #[cfg(feature = "stable")]
     pub fn new(size: u64, offset: u64, pointer: AMPointerGlobal) -> Fragment {
         Fragment {
             size,

@@ -5,21 +5,37 @@ use crc32fast::Hasher;
 use std::convert::{TryFrom, TryInto};
 use std::fmt;
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd,Ord)]
 #[repr(C)]
 /// AMFS local pointer. Valid within one disk.
 pub struct AMPointerLocal(pub(crate) AMPointer);
 
 impl fmt::Display for AMPointerLocal {
+    #[cfg(feature = "unstable")]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Local({})", self.loc())
+        if self.is_null() {
+            write!(f, "Local(NULL)")
+        } else {
+            write!(f, "Local({})", self.loc())
+        }
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd,Ord)]
 #[repr(C)]
 /// AMFS global pointer. Valid within a volume.
 pub struct AMPointerGlobal(pub(crate) AMPointer);
+
+impl fmt::Display for AMPointerGlobal {
+    #[cfg(feature = "unstable")]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.is_null() {
+            write!(f, "Global(NULL)")
+        } else {
+            write!(f, "Global({},{})", self.dev(),self.loc())
+        }
+    }
+}
 
 impl AMPointerGlobal {
     /// Creates a new pointer pointing at a given address and device. Invalid until updated
@@ -265,6 +281,22 @@ pub(crate) struct AMPointer {
     len: u8,
     padding: u8,
 }
+
+impl std::cmp::Ord for AMPointer {
+    #[cfg(feature = "stable")]
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        (self.location, self.device, self.geometry, self.len).cmp(&(other.location, other.device, other.geometry, other.len))
+    }
+}
+
+impl std::cmp::PartialOrd for AMPointer {
+    #[cfg(feature = "stable")]
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some((self.location, self.device, self.geometry, self.len).cmp(&(other.location, other.device, other.geometry, other.len)))
+    }
+}
+
+impl std::cmp::Eq for AMPointer {}
 
 impl AMPointer {
     #[cfg(feature = "stable")]

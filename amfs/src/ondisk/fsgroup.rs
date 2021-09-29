@@ -79,7 +79,7 @@ impl FSGroup {
 
         let mut res: FSGroup = FSGroup::new();
         ptr.read(0, BLOCK_SIZE, dgs, &mut res)?;
-        assert!(ptr.validate(dgs)?);
+        assert_or_err!(ptr.validate(dgs)?, AMErrorFS::Checksum);
         Ok(res)
     }
     /// Writes a FSGroup to the disk group

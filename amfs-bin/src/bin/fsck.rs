@@ -3,7 +3,7 @@
 #![allow(unknown_lints)]
 #![allow(require_stability_comment)]
 
-use amfs::operations::fsck_single;
+use amfs::operations::fsck_single_scan;
 use amfs::DiskFile;
 
 fn main() {
@@ -11,5 +11,5 @@ fn main() {
 
     let path = std::env::args().nth(1).unwrap();
     let d = DiskFile::open(&path).unwrap();
-    fsck_single(d).unwrap();
+    fsck_single_scan(d).unwrap();
 }

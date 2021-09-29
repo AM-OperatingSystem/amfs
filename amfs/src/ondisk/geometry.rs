@@ -1,9 +1,10 @@
 use std::ops::{Deref, DerefMut};
 use std::{mem, slice};
 
-use crate::{AMPointerLocal, Disk};
+use crate::{AMPointerLocal, Disk,};
 
 use amos_std::AMResult;
+use amos_std::error::AMErrorFS;
 
 use crate::BLOCK_SIZE;
 
@@ -43,7 +44,7 @@ impl Geometry {
     pub fn read(mut d: Disk, ptr: AMPointerLocal) -> AMResult<Geometry> {
         let mut res: Geometry = Geometry::new();
         d.read_at(ptr.loc(), &mut res)?;
-        assert!(ptr.validate(d)?);
+        assert_or_err!(ptr.validate(d)?, AMErrorFS::Checksum);
         Ok(res)
     }
     /// Writes a geometry to disk.
