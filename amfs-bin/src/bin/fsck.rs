@@ -7,6 +7,8 @@ use amfs::operations::fsck_single;
 use amfs::DiskFile;
 
 fn main() {
+    amfs::test::logging::init_log();
+
     let path = std::env::args().nth(1).unwrap();
     let d = DiskFile::open(&path).unwrap();
     fsck_single(d).unwrap();

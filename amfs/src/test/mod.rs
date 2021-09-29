@@ -6,4 +6,11 @@
 
 pub mod dg;
 pub mod fsinit;
+
+#[cfg(feature = "log4rs")]
 pub mod logging;
+
+#[cfg(not(feature = "log4rs"))]
+pub mod logging {
+    pub fn init_log() {}
+}

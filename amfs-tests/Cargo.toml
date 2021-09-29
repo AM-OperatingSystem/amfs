@@ -7,12 +7,10 @@ edition = "2018"
 
 [dependencies]
 amos-std = { path = "../../amos-std" }
-amfs = { path = "../amfs" }
+amfs = { path = "../amfs", features = [] }
 amfs-macros = { path = "../amfs-macros" }
 paste = "1.0.5"
 log = "0.4.14"
-log4rs = "1.0.0"
-lazy_static = "1.4.0"
 serde_json = "1.0.67"
 data-encoding = "2.3.2"
 sha2 = "0.9.6"

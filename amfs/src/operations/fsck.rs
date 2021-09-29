@@ -2,15 +2,11 @@ use crate::{Disk,AMPointerLocal,FSHandle};
 
 use crate::SIGNATURE;
 
-use crate::test::logging::init_log;
-
 use amos_std::AMResult;
 
 /// Checks the filesystem on a single disk
 #[cfg(feature = "unstable")]
 pub fn fsck_single(d: Disk) -> AMResult<()> {
-    init_log();
-
     let fs = FSHandle::open(&[d.clone()]).ok();
 
     let sb_locs = d.get_header_locs()?;
@@ -32,7 +28,7 @@ pub fn fsck_single(d: Disk) -> AMResult<()> {
                 warn!("\t\t\tIncorrect checksum");
             }
             if let Some(fs) = &fs {
-                if sb.devid() != fs.read().unwrap().get_superblock().unwrap().devid() {
+                if sb.devid() != fs.read()?.get_superblock()?.devid() {
                     warn!("\t\t\tMismatched device ID");
                 }
             }

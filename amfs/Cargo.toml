@@ -14,7 +14,7 @@ rand = "0.8.4"
 strum = "0.21"
 strum_macros = "0.21"
 log = "0.4.14"
-log4rs="1.0.0"
+log4rs= { version = "1.0.0", optional = true }
 derivative = "2.2.0"
 more-asserts="0.2.1"
 serial_test = "0.5.1"

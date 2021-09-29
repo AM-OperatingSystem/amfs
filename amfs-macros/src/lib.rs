@@ -75,7 +75,7 @@ pub fn test_fs(_: TokenStream, item: TokenStream) -> TokenStream {
     let output = quote! {
         #[test]
         #input_sig {
-            amfs_tests::logging::init_log();
+            amfs::test::logging::init_log();
             #(#input_blk)*
         }
     };
