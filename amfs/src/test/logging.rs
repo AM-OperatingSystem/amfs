@@ -9,12 +9,14 @@ pub fn init_log() {
     if *lock == 0 {
         use log::LevelFilter;
         use log4rs::append::console::ConsoleAppender;
-        use log4rs::encode::pattern::PatternEncoder;
         use log4rs::config::{Appender, Config, Root};
+        use log4rs::encode::pattern::PatternEncoder;
 
         let encoder = PatternEncoder::new("{h({l:<5})} {t:>25} - {m}{n}");
 
-        let stdout = ConsoleAppender::builder().encoder(Box::new(encoder)).build();
+        let stdout = ConsoleAppender::builder()
+            .encoder(Box::new(encoder))
+            .build();
         let config = Config::builder()
             .appender(Appender::builder().build("stdout", Box::new(stdout)))
             .build(Root::builder().appender("stdout").build(LevelFilter::Debug))

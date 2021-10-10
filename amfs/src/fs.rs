@@ -92,6 +92,8 @@ pub struct AMFS {
     lock: Arc<RwLock<u8>>,
     journal: VecDeque<JournalEntry>,
     objects: Option<ObjectSet>,
+    free_queue: BTreeMap<u128, Vec<AMPointerGlobal>>,
+    cur_txid: u128,
 }
 
 impl AMFS {
@@ -106,13 +108,16 @@ impl AMFS {
             lock: Arc::new(RwLock::new(0)),
             journal: VecDeque::new(),
             objects: None,
+            free_queue: BTreeMap::new(),
+            cur_txid: 0,
         };
         let devids = res.load_superblocks(d)?;
         res.build_diskgroups(&devids, d)?;
         res.load_allocators()?;
         assert!(res.test_features(AMFeatures::current_set())?);
         let obj_ptr = res.get_root_group()?.get_obj_ptr();
-        res.objects = Some(ObjectSet::read(res.dgs.clone(), obj_ptr)?);
+        res.objects = Some(ObjectSet::read(res.dgs.clone(), obj_ptr));
+        res.cur_txid = res.get_root_group()?.txid() + 1;
         Ok(res)
     }
     #[cfg(feature = "stable")]
@@ -129,8 +134,8 @@ impl AMFS {
             .fold(None, |acc: Option<(u128, Superblock)>, x| {
                 if let Some((max, _)) = acc {
                     if let Ok(group) = x.get_group(&self.dgs) {
-                        if group.get_txid() > max {
-                            Some((group.get_txid(), x))
+                        if group.txid() > max {
+                            Some((group.txid(), x))
                         } else {
                             acc
                         }
@@ -139,7 +144,7 @@ impl AMFS {
                     }
                 } else {
                     if let Ok(group) = x.get_group(&self.dgs) {
-                        Some((group.get_txid(), x))
+                        Some((group.txid(), x))
                     } else {
                         acc
                     }
@@ -211,6 +216,10 @@ impl AMFS {
         for dg in self.dgs.iter_mut().flatten() {
             dg.load_allocators(self.allocators.clone());
         }
+        self.free_queue = self
+            .get_superblock()?
+            .get_group(&self.dgs)?
+            .get_free_queue(&self.dgs)?;
         Ok(())
     }
     #[cfg(feature = "unstable")]
@@ -218,7 +227,8 @@ impl AMFS {
         let lock = self.lock.clone();
         let _handle = lock.read()?;
 
-        let res = self.dgs[0].clone().ok_or(0)?.alloc_blocks(n)?;
+        let mut res = self.dgs[0].clone().ok_or(0)?.alloc_blocks(n)?;
+        res.update(&self.dgs)?;
         self.journal.push_back(JournalEntry::Alloc(res));
 
         Ok(Some(res))
@@ -228,7 +238,10 @@ impl AMFS {
         let lock = self.lock.clone();
         let _handle = lock.read()?;
 
-        let res = self.dgs[0].clone().ok_or(0)?.alloc_bytes(n)?;
+        let mut res = self.dgs[0].clone().ok_or(0)?.alloc_bytes(n)?;
+        for p in &mut res {
+            p.pointer.update(&self.dgs)?;
+        }
         //TODO: self.journal.push_back(JournalEntry::Alloc(res));
 
         Ok(res)
@@ -251,10 +264,16 @@ impl AMFS {
     }
     #[cfg(feature = "unstable")]
     pub(crate) fn free(&mut self, ptr: AMPointerGlobal) -> AMResult<()> {
+        info!("Freeing {}", ptr);
         let lock = self.lock.clone();
         let _handle = lock.read()?;
 
         self.journal.push_back(JournalEntry::Free(ptr));
+        if let Some(e) = self.free_queue.get_mut(&self.cur_txid) {
+            e.push(ptr);
+        } else {
+            self.free_queue.insert(self.cur_txid, vec![ptr]);
+        }
 
         Ok(())
     }
@@ -327,6 +346,7 @@ impl AMFS {
         let mut root_group = self.get_root_group()?;
         root_group.objects = self.get_objects()?.ptr;
         let mut root_ptr = dg.alloc_blocks(1)?;
+        root_group.write_free_queue(&[Some(dg.clone())], &self.free_queue)?;
         root_group.write_allocators(&mut [Some(dg.clone())], &mut self.allocators)?;
         root_group.write(&[Some(dg)], &mut root_ptr)?;
         // Write superblocks

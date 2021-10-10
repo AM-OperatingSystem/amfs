@@ -5,7 +5,7 @@ use crc32fast::Hasher;
 use std::convert::{TryFrom, TryInto};
 use std::fmt;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd,Ord)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(C)]
 /// AMFS local pointer. Valid within one disk.
 pub struct AMPointerLocal(pub(crate) AMPointer);
@@ -21,7 +21,7 @@ impl fmt::Display for AMPointerLocal {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd,Ord)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(C)]
 /// AMFS global pointer. Valid within a volume.
 pub struct AMPointerGlobal(pub(crate) AMPointer);
@@ -32,7 +32,7 @@ impl fmt::Display for AMPointerGlobal {
         if self.is_null() {
             write!(f, "Global(NULL)")
         } else {
-            write!(f, "Global({},{})", self.dev(),self.loc())
+            write!(f, "Global({},{})", self.dev(), self.loc())
         }
     }
 }
@@ -285,14 +285,24 @@ pub(crate) struct AMPointer {
 impl std::cmp::Ord for AMPointer {
     #[cfg(feature = "stable")]
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        (self.location, self.device, self.geometry, self.len).cmp(&(other.location, other.device, other.geometry, other.len))
+        (self.location, self.device, self.geometry, self.len).cmp(&(
+            other.location,
+            other.device,
+            other.geometry,
+            other.len,
+        ))
     }
 }
 
 impl std::cmp::PartialOrd for AMPointer {
     #[cfg(feature = "stable")]
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some((self.location, self.device, self.geometry, self.len).cmp(&(other.location, other.device, other.geometry, other.len)))
+        Some((self.location, self.device, self.geometry, self.len).cmp(&(
+            other.location,
+            other.device,
+            other.geometry,
+            other.len,
+        )))
     }
 }
 

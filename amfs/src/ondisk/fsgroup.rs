@@ -27,8 +27,20 @@ pub struct FSGroup {
 /// A list of allocators.
 #[derive(Clone, Copy, Debug)]
 pub struct AllocListEntry {
-    disk_id: u64,
-    allocator: AMPointerGlobal,
+    /// The disk to which the allocator applies
+    pub disk_id: u64,
+    /// A pointer to the allocator
+    pub allocator: AMPointerGlobal,
+}
+
+#[repr(C)]
+/// A list of allocators.
+#[derive(Clone, Copy, Debug)]
+pub struct FreeQueueEntry {
+    /// The txid in which the block was freed
+    pub txid: u128,
+    /// A pointer to the block
+    pub block: AMPointerGlobal,
 }
 
 impl FSGroup {
@@ -47,7 +59,7 @@ impl FSGroup {
     }
     /// Gets this group's transaction ID
     #[cfg(feature = "stable")]
-    pub fn get_txid(&self) -> u128 {
+    pub fn txid(&self) -> u128 {
         self.txid
     }
     /// Gets a pointer to this group's allocator
@@ -69,6 +81,11 @@ impl FSGroup {
     #[cfg(feature = "unstable")]
     pub fn directory(&self) -> u64 {
         self.directory
+    }
+    /// Gets a pointer to this group's free queue
+    #[cfg(feature = "unstable")]
+    pub fn free_queue(&self) -> AMPointerGlobal {
+        self.free_queue
     }
     /// Reads a FSGroup from the disk group
     #[cfg(feature = "unstable")]
@@ -100,6 +117,40 @@ impl FSGroup {
             res.insert(a.disk_id, Allocator::read(dgs, a.allocator)?);
         }
         Ok(res)
+    }
+    /// Loads the free queue
+    #[cfg(feature = "unstable")]
+    pub fn get_free_queue(
+        &self,
+        dgs: &[Option<DiskGroup>],
+    ) -> AMResult<BTreeMap<u128, Vec<AMPointerGlobal>>> {
+        let queue: Vec<FreeQueueEntry> = <Vec<FreeQueueEntry> as LinkedListGlobal<
+            Vec<FreeQueueEntry>,
+        >>::read(dgs, self.free_queue)?;
+        let mut res = BTreeMap::new();
+        for e in queue {
+            res.entry(e.txid).or_insert_with(Vec::new).push(e.block);
+        }
+        Ok(res)
+    }
+    /// Writes out the free queue
+    #[cfg(feature = "unstable")]
+    pub fn write_free_queue(
+        &mut self,
+        dgs: &[Option<DiskGroup>],
+        queue: &BTreeMap<u128, Vec<AMPointerGlobal>>,
+    ) -> AMResult<()> {
+        let mut res = Vec::new();
+        for (k, v) in queue {
+            for e in v {
+                res.push(FreeQueueEntry {
+                    txid: *k,
+                    block: *e,
+                });
+            }
+        }
+        self.free_queue = LinkedListGlobal::write(&res, dgs, 0)?;
+        Ok(())
     }
     /// Writes out the allocator object for each disk
     #[cfg(feature = "unstable")]
@@ -164,4 +215,9 @@ fn size_test_group() {
 #[test]
 fn size_test_ale() {
     assert_eq!(mem::size_of::<AllocListEntry>(), 24);
+}
+
+#[test]
+fn size_test_fqe() {
+    assert_eq!(mem::size_of::<FreeQueueEntry>(), 32);
 }

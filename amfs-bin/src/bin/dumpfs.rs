@@ -29,6 +29,7 @@ enum BlockType {
     FSGroup(FSGroup),
     Alloc(AMPointerGlobal),
     AllocList(AMPointerGlobal),
+    FreeQueue(AMPointerGlobal),
     Objects(ObjectSet),
     Error,
 }
@@ -114,36 +115,43 @@ fn main() {
                     types[idx].1 = true;
                     upd = true;
                 }
+                BlockType::FreeQueue(_) => {
+                    types[idx].1 = true;
+                    upd = true;
+                }
                 BlockType::FSGroup(f) => {
                     if !f.alloc().is_null() {
                         types[f.alloc().loc() as usize] = (BlockType::AllocList(f.alloc()), false)
                     }
                     if !f.objects().is_null() {
-                        if let Ok(o) = ObjectSet::read(
-                            [
-                                Some(dg.clone()),
-                                None,
-                                None,
-                                None,
-                                None,
-                                None,
-                                None,
-                                None,
-                                None,
-                                None,
-                                None,
-                                None,
-                                None,
-                                None,
-                                None,
-                                None,
-                            ],
-                            f.objects(),
-                        ) {
-                            types[f.objects().loc() as usize] = (BlockType::Objects(o), false)
-                        } else {
-                            types[f.objects().loc() as usize] = (BlockType::Error, true)
-                        }
+                        types[f.objects().loc() as usize] = (
+                            BlockType::Objects(ObjectSet::read(
+                                [
+                                    Some(dg.clone()),
+                                    None,
+                                    None,
+                                    None,
+                                    None,
+                                    None,
+                                    None,
+                                    None,
+                                    None,
+                                    None,
+                                    None,
+                                    None,
+                                    None,
+                                    None,
+                                    None,
+                                    None,
+                                ],
+                                f.objects(),
+                            )),
+                            false,
+                        )
+                    }
+                    if !f.free_queue().is_null() {
+                        types[f.free_queue().loc() as usize] =
+                            (BlockType::FreeQueue(f.free_queue()), false)
                     }
                     types[idx].1 = true;
                     upd = true;
@@ -165,6 +173,7 @@ fn main() {
             BlockType::AllocList(_) => print_alloclist(idx, buf),
             BlockType::Alloc(_) => print_alloc(idx, buf),
             BlockType::Objects(o) => print_objs(idx, buf, o, &dg),
+            BlockType::FreeQueue(_) => print_free_queue(idx, buf),
             BlockType::Error => print_error(idx, buf),
         }
     }
@@ -185,18 +194,25 @@ fn print_fsgroup(idx: usize, buf: [u8; BLOCK_SIZE], g: FSGroup, _d: &DiskGroup) 
     print_hex_ptr_global(
         idx * BLOCK_SIZE + 1,
         &buf[0x10 * (1)..],
-        "journal".to_string(),
-        g.journal(),
+        "freequeue".to_string(),
+        g.free_queue(),
     );
     println!();
     print_hex_ptr_global(
         idx * BLOCK_SIZE + 2,
         &buf[0x10 * (2)..],
+        "journal".to_string(),
+        g.journal(),
+    );
+    println!();
+    print_hex_ptr_global(
+        idx * BLOCK_SIZE + 3,
+        &buf[0x10 * (3)..],
         "objects".to_string(),
         g.objects(),
     );
     println!();
-    print_hex(idx * BLOCK_SIZE + 3, &buf[0x10 * (3)..]);
+    print_hex(idx * BLOCK_SIZE + 4, &buf[0x10 * (4)..]);
     print!("directory:{}", g.directory());
     println!();
 }
@@ -268,10 +284,37 @@ fn print_alloc(idx: usize, buf: [u8; BLOCK_SIZE]) {
         println!();
     }
 }
+fn print_free_queue(idx: usize, buf: [u8; BLOCK_SIZE]) {
+    println!("Free queue:");
+    let hdr = unsafe { u8_slice_as_any::<LLGHeader>(&buf) };
+    print_hex_ptr_global(
+        idx * BLOCK_SIZE + 0,
+        &buf[0x10 * (0)..],
+        "next".to_string(),
+        hdr.next,
+    );
+    println!();
+    print_hex(idx * BLOCK_SIZE + 1, &buf[0x10 * 1..]);
+    print!("count:{}", hdr.count);
+    println!();
+    for i in 0..usize::from(hdr.count) {
+        print_hex(idx * BLOCK_SIZE + 2 + i * 2, &buf[0x10 * (2 + i * 2)..]);
+        let txid = unsafe { u8_slice_as_any::<u128>(&buf[0x20 + i * 32..0x30 + i * 32]) };
+        println!("txid:{}", txid);
+        let ptr = unsafe { u8_slice_as_any::<AMPointerGlobal>(&buf[0x30 + i * 32..0x40 + i * 32]) };
+        print_hex_ptr_global(
+            idx * BLOCK_SIZE + 2 + i * 2,
+            &buf[0x10 * (2 + i * 2)..],
+            "block".to_string(),
+            *ptr,
+        );
+        println!();
+    }
+    println!();
+}
 fn print_objs(idx: usize, buf: [u8; BLOCK_SIZE], _o: ObjectSet, _d: &DiskGroup) {
     println!("ObjectSet:");
     let hdr = unsafe { u8_slice_as_any::<ObjectListHeader>(&buf) };
-    println!();
     print_hex(idx * BLOCK_SIZE, &buf[0..]);
     print!("start:{} count:{}", hdr.start_idx, hdr.n_entries);
     println!();

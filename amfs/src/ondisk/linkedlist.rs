@@ -131,7 +131,6 @@ impl<T: Copy + std::fmt::Debug> LinkedListGlobal<Vec<T>> for Vec<T> {
         dgs: &mut [Option<DiskGroup>],
         n: u8,
     ) -> AMResult<Vec<AMPointerGlobal>> {
-        println!("Preallocing");
         let ent_each =
             (crate::BLOCK_SIZE - std::mem::size_of::<LLGHeader>()) / std::mem::size_of::<T>();
         let blks = if count == 0 {
@@ -140,7 +139,6 @@ impl<T: Copy + std::fmt::Debug> LinkedListGlobal<Vec<T>> for Vec<T> {
             (count + (ent_each - 1)) / ent_each
         };
         let res = dgs[n as usize].as_mut().ok_or(0)?.alloc_many(blks as u64);
-        println!("{:?}", res);
         res
     }
     #[cfg(feature = "unstable")]
@@ -149,7 +147,6 @@ impl<T: Copy + std::fmt::Debug> LinkedListGlobal<Vec<T>> for Vec<T> {
         dgs: &[Option<DiskGroup>],
         blks: &[AMPointerGlobal],
     ) -> AMResult<AMPointerGlobal> {
-        println!("Writing: {:?}", blks);
         let mut blockptrs = blks.to_vec();
 
         let ent_each = (BLOCK_SIZE - std::mem::size_of::<LLGHeader>()) / std::mem::size_of::<T>();
@@ -177,7 +174,6 @@ impl<T: Copy + std::fmt::Debug> LinkedListGlobal<Vec<T>> for Vec<T> {
             for _ in 0..ent_each {
                 let npos = pos + std::mem::size_of::<T>();
                 if let Some(v) = it.next() {
-                    println!("Item! {:x?} {}", v, std::any::type_name::<T>());
                     headers[i].count += 1;
                     unsafe {
                         buf[pos..npos].copy_from_slice(any_as_u8_slice(v));

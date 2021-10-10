@@ -64,6 +64,11 @@ impl Allocator {
     pub fn total_space(&self) -> u64 {
         self.0.borrow().total_space()
     }
+    /// Gets the list of extents
+    #[cfg(feature = "unstable")]
+    pub fn extents(&self) -> BTreeMap<u64, Extent> {
+        self.0.borrow().extents.clone()
+    }
     /// Preallocates blocks needed to store the allocator
     #[cfg(feature = "unstable")]
     pub fn prealloc(&self, dgs: &mut [Option<DiskGroup>], n: u8) -> AMResult<Vec<AMPointerGlobal>> {
@@ -116,8 +121,8 @@ pub struct AllocatorObj {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Extent {
-    size: u64,
-    used: bool,
+    pub size: u64,
+    pub used: bool,
 }
 
 impl AllocatorObj {

@@ -62,6 +62,6 @@ pub fn mkfs_single(mut d: Disk) -> AMResult<()> {
 #[test]
 pub fn test_mkfs() {
     #![allow(clippy::unwrap_used)]
-    let d = crate::DiskMem::open(1000);
+    let d = crate::disk::DiskFile::open("test.img").unwrap();
     mkfs_single(d).unwrap();
 }

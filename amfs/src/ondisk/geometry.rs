@@ -1,10 +1,10 @@
 use std::ops::{Deref, DerefMut};
 use std::{mem, slice};
 
-use crate::{AMPointerLocal, Disk,};
+use crate::{AMPointerLocal, Disk};
 
-use amos_std::AMResult;
 use amos_std::error::AMErrorFS;
+use amos_std::AMResult;
 
 use crate::BLOCK_SIZE;
 

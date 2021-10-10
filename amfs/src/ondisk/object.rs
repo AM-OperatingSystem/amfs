@@ -47,8 +47,8 @@ impl ObjectListHeader {
 impl ObjectSet {
     /// Creates a new object set handle
     #[cfg(feature = "stable")]
-    pub fn read(dgs: [Option<DiskGroup>; 16], ptr: AMPointerGlobal) -> AMResult<ObjectSet> {
-        Ok(ObjectSet { ptr, dgs })
+    pub fn read(dgs: [Option<DiskGroup>; 16], ptr: AMPointerGlobal) -> ObjectSet {
+        ObjectSet { ptr, dgs }
     }
     /// Checks the existance of an object with a given ID
     #[cfg(feature = "stable")]
@@ -219,7 +219,7 @@ impl ObjectSet {
                                 }
                                 idx += 1;
                             }
-                            // Calcualte the new end of the last object after shifting
+                            // Calculate the new end of the last object after shifting
                             let new_end = j + size_diff;
                             if new_end > BLOCK_SIZE {
                                 // We need to spill into a new block
@@ -227,7 +227,7 @@ impl ObjectSet {
                             } else {
                                 blk.copy_within(i..j, i + size_diff);
                             }
-                            println!(
+                            /*println!(
                                 "i:{} si:{} ne:{} p:{} i:{} j:{} sd:{} nl:{}",
                                 idx,
                                 header.start_idx,
@@ -237,20 +237,19 @@ impl ObjectSet {
                                 j,
                                 size_diff,
                                 i + size_diff
-                            );
+                            );*/
                             //unimplemented!();
                         }
                     }
-                    println!("{}", pos);
+                    //println!("{}", pos);
                     for frag in &obj.frags {
                         blk[pos..pos + FRAGMENT_SIZE].copy_from_slice(frag.to_bytes());
                         pos += FRAGMENT_SIZE;
                     }
                     blk[pos..pos + 8].copy_from_slice(&[0u8; 8]);
 
-                    pos += 8;
-
-                    println!("{}", pos);
+                    //pos += 8;
+                    //println!("{}", pos);
 
                     blk[..LIST_HEADER_SIZE].copy_from_slice(header.to_bytes());
 
@@ -295,7 +294,7 @@ impl ObjectSet {
 }
 
 /// Represents one file or meta-file on disk
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Object {
     frags: Vec<Fragment>,
 }
@@ -307,6 +306,11 @@ impl Object {
         Object {
             frags: frags.to_vec(),
         }
+    }
+    /// Return the list of fragments backing the object
+    #[cfg(feature = "unstable")]
+    pub fn frags(&self) -> Vec<Fragment> {
+        self.frags.clone()
     }
     /// Reads the contents of an object from the disk
     #[cfg(feature = "unstable")]
@@ -435,12 +439,15 @@ impl Object {
 }
 
 /// A single contiguous fragment of a file
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 #[repr(C)]
 pub struct Fragment {
-    size: u64,
-    offset: u64,
-    pointer: AMPointerGlobal,
+    /// The length of the fragment, in bytes
+    pub size: u64,
+    /// The offset from the pointer location to the start of the fragment
+    pub offset: u64,
+    /// A pointer to the block containing the fragment's data
+    pub pointer: AMPointerGlobal,
 }
 
 impl Fragment {

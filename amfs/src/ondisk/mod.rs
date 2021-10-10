@@ -1,5 +1,5 @@
 pub use self::allocator::Allocator;
-pub use self::fsgroup::FSGroup;
+pub use self::fsgroup::{AllocListEntry, FSGroup, FreeQueueEntry};
 pub use self::geometry::{Geometry, GeometryFlavor};
 pub use self::journal::JournalEntry;
 pub use self::linkedlist::LinkedListGlobal;
