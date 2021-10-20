@@ -1,3 +1,5 @@
+#![cfg(not(tarpaulin_include))]
+
 use crate::{
     AMPointerGlobal, AMPointerLocal, AllocListEntry, Allocator, Disk, DiskGroup, FSHandle,
     FreeQueueEntry, LinkedListGlobal,
@@ -301,7 +303,7 @@ pub fn fsck_single_scan(d: Disk) -> Result<(), FSCKError> {
         }
         blockmap.set(loc.loc().try_into().expect("Bitness error"), true);
     }
-    info!("Verifying allocators...");
+    info!("Verifying objects...");
     let mut allocs = Vec::new();
     for loc in alloc_locs {
         info!("\tVerifying allocator at {}", loc);
