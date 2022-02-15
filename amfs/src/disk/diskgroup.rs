@@ -70,7 +70,7 @@ impl DiskGroup {
                 let ptr = self.allocs[0].alloc_blocks(n).ok_or(0)?;
                 AMPointerGlobal::new(ptr, 1, 0, 0)
             }
-            _ => unimplemented!(),
+            _ => unimplemented!(), // TODO(#3): Add support for additional geometries
         })
     }
     /// Allocates a block
@@ -99,7 +99,7 @@ impl DiskGroup {
                 }
                 res
             }
-            _ => unimplemented!(),
+            _ => unimplemented!(), // TODO(#3): Add support for additional geometries
         })
     }
     /// Allocates a block
@@ -112,7 +112,7 @@ impl DiskGroup {
                 .iter()
                 .map(|x| AMPointerGlobal::new(*x, 1, 0, 0))
                 .collect(),
-            _ => unimplemented!(),
+            _ => unimplemented!(), // TODO(#3): Add support for additional geometries
         })
     }
     /// Syncs the disks

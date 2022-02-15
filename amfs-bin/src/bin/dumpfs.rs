@@ -453,7 +453,7 @@ fn print_superblock(idx: usize, buf: [u8; BLOCK_SIZE], mut s: Superblock, d: &Di
     }
 }
 fn print_error(_idx: usize, _buf: [u8; BLOCK_SIZE]) {
-    unimplemented!();
+    todo!();
 }
 fn print_hex(idx: usize, data: &[u8]) {
     print!("\t{:06x} : ", idx * 0x10);

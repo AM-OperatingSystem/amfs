@@ -69,7 +69,7 @@ impl ObjectSet {
             let header =
                 ObjectListHeader::from_bytes(blk[..LIST_HEADER_SIZE].try_into().or(Err(0))?);
             if header.n_entries & 0x8000000000000000 != 0 {
-                unimplemented!();
+                todo!();
             } else {
                 if header.start_idx <= id {
                     let mut pos = std::mem::size_of::<ObjectListHeader>();
@@ -118,7 +118,7 @@ impl ObjectSet {
             let mut pos = std::mem::size_of::<ObjectListHeader>();
             let idx = header.start_idx;
             if header.n_entries & 0x8000000000000000 != 0 {
-                unimplemented!();
+                todo!();
             } else {
                 for i in idx..idx + header.n_entries {
                     let mut frags = Vec::new();
@@ -156,7 +156,7 @@ impl ObjectSet {
                 ObjectListHeader::from_bytes(blk[..LIST_HEADER_SIZE].try_into().or(Err(0))?);
             if header.n_entries & 0x8000000000000000 != 0 {
                 //If the high bit is set, this is an indirect block.
-                unimplemented!();
+                todo!();
             } else {
                 if header.start_idx <= id {
                     //We're in the block containing the object to update
@@ -181,7 +181,7 @@ impl ObjectSet {
                             // No action needed, we're at the right spot
                         } else {
                             // We need to allocate a new block
-                            unimplemented!();
+                            todo!();
                         }
                     } else {
                         // We're updating an object
@@ -222,7 +222,7 @@ impl ObjectSet {
                             let new_end = j + size_diff;
                             if new_end > BLOCK_SIZE {
                                 // We need to spill into a new block
-                                unimplemented!();
+                                todo!();
                             } else {
                                 blk.copy_within(i..j, i + size_diff);
                             }
@@ -237,7 +237,7 @@ impl ObjectSet {
                                 size_diff,
                                 i + size_diff
                             );*/
-                            //unimplemented!();
+                            //todo!();
                         }
                     }
                     //println!("{}", pos);
@@ -254,7 +254,7 @@ impl ObjectSet {
 
                     let mut ptr = fs.realloc(ptr)?.ok_or(0)?;
                     for _w in parents.windows(2) {
-                        unimplemented!();
+                        todo!();
                     }
                     ptr.write(0, blk.len(), &self.dgs, &blk)?;
                     ptr.update(&self.dgs)?;
@@ -268,7 +268,7 @@ impl ObjectSet {
                         header.start_idx + header.n_entries,
                         id
                     );
-                    unimplemented!();
+                    todo!();
                 }
             }
         }
@@ -371,7 +371,7 @@ impl Object {
                 let slice_start = start - pos;
                 let slice_end = slice_start + u64::try_from(data.len())?;
                 if slice_end > f.size {
-                    unimplemented!();
+                    todo!();
                 } else {
                     f.pointer = handle.realloc(f.pointer)?.ok_or(0)?;
                     res += f
@@ -396,7 +396,7 @@ impl Object {
                 // No-op
             } else {
                 //We need to create fragments
-                unimplemented!();
+                todo!();
             }
         } else {
             let mut cur_size = self.size()?;
