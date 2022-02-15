@@ -1,10 +1,7 @@
 use amfs::DiskFile;
-use amos_std::error::AMError;
-use amos_std::error::AMErrorFS;
-
 use amfs_macros::*;
-
 use amfs_tests::imagegen::generators::*;
+use amos_std::error::{AMError, AMErrorFS};
 
 #[test_fs]
 fn test_err_signature() {

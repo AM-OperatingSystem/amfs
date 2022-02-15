@@ -1,9 +1,8 @@
-use crate::{AMPointerGlobal, DiskGroup, LinkedListGlobal};
-use amos_std::AMResult;
-use std::collections::BTreeMap;
+use std::{cell::RefCell, collections::BTreeMap, rc::Rc};
 
-use std::cell::RefCell;
-use std::rc::Rc;
+use amos_std::AMResult;
+
+use crate::{AMPointerGlobal, DiskGroup, LinkedListGlobal};
 
 /// A refrence-counted pointer to a disk object
 #[derive(Clone, Debug)]
@@ -115,7 +114,7 @@ impl Allocator {
 /// The filesystem's block allocator
 #[derive(Debug, PartialEq)]
 pub struct AllocatorObj {
-    size: u64,
+    size:    u64,
     extents: BTreeMap<u64, Extent>,
 }
 

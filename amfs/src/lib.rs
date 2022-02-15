@@ -33,13 +33,13 @@ pub const BLOCK_SIZE: usize = 4096;
 /// The filesystem's signature. Appears at the start of top-level headers.
 pub const SIGNATURE: &[u8; 8] = b"amosAMFS";
 
-pub use self::disk::{Disk, DiskFile, DiskGroup, DiskMem};
-pub use self::features::AMFeatures;
-pub use self::fs::FSHandle;
-
 use self::fs::AMFS;
-
-pub use self::ondisk::*;
+pub use self::{
+    disk::{Disk, DiskFile, DiskGroup, DiskMem},
+    features::AMFeatures,
+    fs::FSHandle,
+    ondisk::*,
+};
 
 mod disk;
 mod features;

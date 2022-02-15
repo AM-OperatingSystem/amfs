@@ -1,13 +1,15 @@
-use crate::features::AMFeatures;
-use crate::{
-    AMPointerGlobal, Allocator, Disk, DiskGroup, FSGroup, Fragment, JournalEntry, Object,
-    ObjectSet, Superblock,
+use std::{
+    collections::{BTreeMap, BTreeSet, VecDeque},
+    convert::TryInto,
+    sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
-use amos_std::error::AMErrorFS;
-use amos_std::AMResult;
-use std::collections::{BTreeMap, BTreeSet, VecDeque};
-use std::convert::TryInto;
-use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
+
+use amos_std::{error::AMErrorFS, AMResult};
+
+use crate::{
+    features::AMFeatures, AMPointerGlobal, Allocator, Disk, DiskGroup, FSGroup, Fragment,
+    JournalEntry, Object, ObjectSet, Superblock,
+};
 
 /// A handle to a disk
 #[derive(Clone, Debug)]
@@ -84,32 +86,32 @@ impl FSHandle {
 /// Object used for mounting a filesystem
 #[derive(Debug)]
 pub struct AMFS {
-    dgs: [Option<DiskGroup>; 16],
-    disks: BTreeMap<u64, Disk>,
-    diskids: BTreeSet<u64>,
+    dgs:         Vec<Option<DiskGroup>>,
+    disks:       BTreeMap<u64, Disk>,
+    diskids:     BTreeSet<u64>,
     superblocks: BTreeMap<u64, [Option<Superblock>; 4]>,
-    allocators: BTreeMap<u64, Allocator>,
-    lock: Arc<RwLock<u8>>,
-    journal: VecDeque<JournalEntry>,
-    objects: Option<ObjectSet>,
-    free_queue: BTreeMap<u128, Vec<AMPointerGlobal>>,
-    cur_txid: u128,
+    allocators:  BTreeMap<u64, Allocator>,
+    lock:        Arc<RwLock<u8>>,
+    journal:     VecDeque<JournalEntry>,
+    objects:     Option<ObjectSet>,
+    free_queue:  BTreeMap<u128, Vec<AMPointerGlobal>>,
+    cur_txid:    u128,
 }
 
 impl AMFS {
     #[cfg(feature = "unstable")]
     fn open(d: &[Disk]) -> AMResult<AMFS> {
         let mut res = AMFS {
-            dgs: Default::default(),
-            disks: BTreeMap::new(),
-            diskids: BTreeSet::new(),
+            dgs:         vec![None; 16],
+            disks:       BTreeMap::new(),
+            diskids:     BTreeSet::new(),
             superblocks: BTreeMap::new(),
-            allocators: BTreeMap::new(),
-            lock: Arc::new(RwLock::new(0)),
-            journal: VecDeque::new(),
-            objects: None,
-            free_queue: BTreeMap::new(),
-            cur_txid: 0,
+            allocators:  BTreeMap::new(),
+            lock:        Arc::new(RwLock::new(0)),
+            journal:     VecDeque::new(),
+            objects:     None,
+            free_queue:  BTreeMap::new(),
+            cur_txid:    0,
         };
         let devids = res.load_superblocks(d)?;
         res.build_diskgroups(&devids, d)?;

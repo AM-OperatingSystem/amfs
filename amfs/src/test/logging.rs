@@ -1,4 +1,5 @@
 use std::sync::Mutex;
+use lazy_static::lazy_static;
 
 lazy_static! {
     static ref MUTEX: Mutex<i32> = Mutex::new(0i32);
@@ -8,9 +9,11 @@ pub fn init_log() {
     let mut lock = MUTEX.lock().unwrap();
     if *lock == 0 {
         use log::LevelFilter;
-        use log4rs::append::console::ConsoleAppender;
-        use log4rs::config::{Appender, Config, Root};
-        use log4rs::encode::pattern::PatternEncoder;
+        use log4rs::{
+            append::console::ConsoleAppender,
+            config::{Appender, Config, Root},
+            encode::pattern::PatternEncoder,
+        };
 
         let encoder = PatternEncoder::new("{h({l:<5})} {t:>25} - {m}{n}");
 

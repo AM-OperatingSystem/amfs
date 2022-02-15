@@ -1,14 +1,13 @@
-use crate::BLOCK_SIZE;
-use crate::{any_as_u8_slice, u8_slice_as_any};
-use crate::{AMPointerGlobal, DiskGroup};
+use std::convert::TryFrom;
+
 use amos_std::AMResult;
 
-use std::convert::TryFrom;
+use crate::{any_as_u8_slice, u8_slice_as_any, AMPointerGlobal, DiskGroup, BLOCK_SIZE};
 
 #[repr(C)]
 pub(crate) struct LLGHeader {
-    next: AMPointerGlobal,
-    count: u64,
+    next:     AMPointerGlobal,
+    count:    u64,
     _padding: u64,
 }
 
@@ -77,9 +76,9 @@ impl<T: Copy + std::fmt::Debug> LinkedListGlobal<Vec<T>> for Vec<T> {
         blockptrs.push(AMPointerGlobal::null());
         let mut headers: Vec<LLGHeader> = (0..blks)
             .map(|i| LLGHeader {
-                count: 0,
+                count:    0,
                 _padding: 0,
-                next: blockptrs[i + 1],
+                next:     blockptrs[i + 1],
             })
             .collect();
 
@@ -160,9 +159,9 @@ impl<T: Copy + std::fmt::Debug> LinkedListGlobal<Vec<T>> for Vec<T> {
         blockptrs.push(AMPointerGlobal::null());
         let mut headers: Vec<LLGHeader> = (0..blks)
             .map(|i| LLGHeader {
-                count: 0,
+                count:    0,
                 _padding: 0,
-                next: blockptrs[i + 1],
+                next:     blockptrs[i + 1],
             })
             .collect();
 

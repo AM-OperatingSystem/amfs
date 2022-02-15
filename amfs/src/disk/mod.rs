@@ -1,9 +1,8 @@
-use crate::AMPointerLocal;
+use std::{cell::RefCell, rc::Rc};
 
 use amos_std::AMResult;
 
-use std::cell::RefCell;
-use std::rc::Rc;
+use crate::AMPointerLocal;
 
 /// A handle to a disk
 #[derive(Clone)]

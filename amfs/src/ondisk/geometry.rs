@@ -1,12 +1,12 @@
-use std::ops::{Deref, DerefMut};
-use std::{mem, slice};
+use std::{
+    mem,
+    ops::{Deref, DerefMut},
+    slice,
+};
 
-use crate::{AMPointerLocal, Disk};
+use amos_std::{error::AMErrorFS, AMResult};
 
-use amos_std::error::AMErrorFS;
-use amos_std::AMResult;
-
-use crate::BLOCK_SIZE;
+use crate::{AMPointerLocal, Disk, BLOCK_SIZE};
 
 /// Describes the way the disks are arranged into the geometry.
 #[repr(u8)]
@@ -24,9 +24,9 @@ pub enum GeometryFlavor {
 pub struct Geometry {
     ///The device IDs of each disk within the arrangement
     pub device_ids: [u64; 256],
-    _padding: [u8; BLOCK_SIZE - 2049],
+    _padding:       [u8; BLOCK_SIZE - 2049],
     ///The arrangement of disks within the geometry
-    pub flavor: GeometryFlavor,
+    pub flavor:     GeometryFlavor,
 }
 
 impl Geometry {
@@ -34,9 +34,9 @@ impl Geometry {
     #[cfg(feature = "unstable")]
     pub fn new() -> Geometry {
         Geometry {
-            flavor: GeometryFlavor::Single,
+            flavor:     GeometryFlavor::Single,
             device_ids: [0; 256],
-            _padding: [0; BLOCK_SIZE - 2049],
+            _padding:   [0; BLOCK_SIZE - 2049],
         }
     }
     /// Reads a geometry from disk.

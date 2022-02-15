@@ -1,21 +1,18 @@
-use crate::disk::DiskObj;
-use std::fs::File;
-use std::fs::OpenOptions;
+use std::{
+    cell::RefCell,
+    convert::TryInto,
+    fs::{File, OpenOptions},
+    io::{Read, Seek, SeekFrom, Write},
+    rc::Rc,
+};
 
 use amos_std::AMResult;
 
-use std::cell::RefCell;
-use std::rc::Rc;
-
-use std::convert::TryInto;
-
-use crate::BLOCK_SIZE;
-
-use std::io::{Read, Seek, SeekFrom, Write};
+use crate::{disk::DiskObj, BLOCK_SIZE};
 
 /// A disk object stored in a file.
 pub struct DiskFile {
-    f: File,
+    f:    File,
     size: u64,
 }
 

@@ -1,6 +1,5 @@
-use crate::operations::mkfs_single;
-use crate::{DiskFile, FSHandle};
 use amos_std::AMResult;
+use crate::{operations::mkfs_single, DiskFile, FSHandle};
 
 pub fn create_fs() -> AMResult<FSHandle> {
     let d = DiskFile::open("test.img").unwrap();

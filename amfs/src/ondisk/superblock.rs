@@ -1,34 +1,31 @@
-use std::ops::{Deref, DerefMut};
-use std::{mem, slice};
+use std::{
+    collections::BTreeSet,
+    mem,
+    ops::{Deref, DerefMut},
+    slice,
+};
 
-use crate::SIGNATURE;
-
-use crate::AMPointerLocal;
-use crate::BLOCK_SIZE;
-
-use amos_std::error::AMErrorFS;
-use amos_std::AMResult;
-
-use std::collections::BTreeSet;
-
+use amos_std::{error::AMErrorFS, AMResult};
 use bitvec::prelude::*;
-
 use crc32fast::Hasher;
 
-use crate::{AMFeatures, AMPointerGlobal, Disk, DiskGroup, FSGroup, Geometry};
+use crate::{
+    AMFeatures, AMPointerGlobal, AMPointerLocal, Disk, DiskGroup, FSGroup, Geometry, BLOCK_SIZE,
+    SIGNATURE,
+};
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 /// A volume superblock. Contains volume-wide information
 pub struct Superblock {
-    signature: [u8; 8],
-    devid: u64,
-    features: BitArr!(for 2048),
-    pub(crate) geometries: [AMPointerLocal; 16],
-    checksum: u32,
-    _padding: [u8; BLOCK_SIZE - 2581],
+    signature:              [u8; 8],
+    devid:                  u64,
+    features:               BitArr!(for 2048),
+    pub(crate) geometries:  [AMPointerLocal; 16],
+    checksum:               u32,
+    _padding:               [u8; BLOCK_SIZE - 2581],
     pub(crate) latest_root: u8,
-    pub(crate) rootnodes: [AMPointerGlobal; 128],
+    pub(crate) rootnodes:   [AMPointerGlobal; 128],
 }
 
 impl Superblock {

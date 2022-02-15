@@ -3,21 +3,19 @@
 #![allow(unknown_lints)]
 #![allow(require_stability_comment)]
 
-use amfs::*;
+use std::{
+    collections::HashMap,
+    convert::{TryFrom, TryInto},
+};
 
-use amfs::{BLOCK_SIZE, SIGNATURE};
-
-use std::collections::HashMap;
-use std::convert::{TryFrom, TryInto};
-
-use strum::IntoEnumIterator;
-
+use amfs::{BLOCK_SIZE, SIGNATURE, *};
 use colored::*;
+use strum::IntoEnumIterator;
 
 #[repr(C)]
 pub(crate) struct LLGHeader {
-    next: AMPointerGlobal,
-    count: u16,
+    next:     AMPointerGlobal,
+    count:    u16,
     _padding: u64,
 }
 

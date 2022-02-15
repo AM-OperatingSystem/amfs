@@ -7,8 +7,7 @@ pub fn generate_0000(f: &File) {
 
 /// Create valid superblock signature
 pub fn generate_0001(f: &File) {
-    use amfs::BLOCK_SIZE;
-    use amfs::SIGNATURE;
+    use amfs::{BLOCK_SIZE, SIGNATURE};
 
     generate_0000(f);
 
@@ -40,8 +39,7 @@ pub fn generate_0002(f: &File) {
 
 /// Create valid superblock checksum
 pub fn generate_0003(f: &File) {
-    use amfs::Superblock;
-    use amfs::BLOCK_SIZE;
+    use amfs::{Superblock, BLOCK_SIZE};
 
     generate_0002(f);
 

@@ -1,15 +1,11 @@
 use amfs::DiskFile;
-use amos_std::error::AMError;
-use amos_std::error::AMErrorFS;
-
 use amfs_macros::*;
-
 use amfs_tests::imagegen::generators::*;
+use amos_std::error::{AMError, AMErrorFS};
 
 #[test_fs]
 fn test_missing_rootgroup() {
-    use amfs::test;
-    use amfs::Superblock;
+    use amfs::{test, Superblock};
 
     generate_image!(3);
 

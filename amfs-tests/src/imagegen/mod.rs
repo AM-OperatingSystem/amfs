@@ -16,8 +16,7 @@ pub fn get_checksums() -> &'static Vec<String> {
 }
 
 fn load_checksums() -> Vec<String> {
-    use std::fs::File;
-    use std::io::BufRead;
+    use std::{fs::File, io::BufRead};
     let file = File::open("hashes.txt").unwrap();
     let res: Result<Vec<String>, _> = std::io::BufReader::new(file).lines().collect();
     res.unwrap()

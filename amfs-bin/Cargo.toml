@@ -8,5 +8,5 @@ edition = "2018"
 [dependencies]
 amfs = { path = "../amfs", features = ["log4rs"] }
 colored = "2.0.0"
-strum = "0.21"
-strum_macros = "0.21"
+strum = "0.23.0"
+strum_macros = "0.23.1"

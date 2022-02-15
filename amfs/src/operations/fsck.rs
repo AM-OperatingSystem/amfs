@@ -1,17 +1,13 @@
 #![cfg(not(tarpaulin_include))]
 
-use crate::{
-    AMPointerGlobal, AMPointerLocal, AllocListEntry, Allocator, Disk, DiskGroup, FSHandle,
-    FreeQueueEntry, LinkedListGlobal,
-};
-
-use crate::SIGNATURE;
-
-use std::collections::BTreeSet;
-
-use std::convert::TryInto;
+use std::{collections::BTreeSet, convert::TryInto};
 
 use bitvec::prelude::*;
+
+use crate::{
+    AMPointerGlobal, AMPointerLocal, AllocListEntry, Allocator, Disk, DiskGroup, FSHandle,
+    FreeQueueEntry, LinkedListGlobal, SIGNATURE,
+};
 
 #[derive(Debug)]
 pub enum FSCKErrorLoc {
@@ -43,7 +39,7 @@ pub enum FSCKErrorKind {
 #[derive(Debug)]
 pub struct FSCKError {
     location: FSCKErrorLoc,
-    kind: FSCKErrorKind,
+    kind:     FSCKErrorKind,
 }
 
 macro_rules! return_error {
@@ -51,7 +47,7 @@ macro_rules! return_error {
         if cfg!(feature = "halt_on_err") {
             return Err(FSCKError {
                 location: $loc.into(),
-                kind: $err,
+                kind:     $err,
             });
         }
     };
@@ -61,7 +57,7 @@ macro_rules! return_error_always {
     ($loc:expr, $err:expr) => {
         return Err(FSCKError {
             location: $loc.into(),
-            kind: $err,
+            kind:     $err,
         });
     };
 }
@@ -71,7 +67,14 @@ macro_rules! return_error_always {
 pub fn fsck_single_scan(d: Disk) -> Result<(), FSCKError> {
     let mut allocs_ok = true;
 
-    let mut blockmap = bitvec![0; d.size().expect("Disk error").try_into().expect("Bitness error")];
+    let mut blockmap = BitVec::<u8, Msb0>::new();
+    blockmap.resize(
+        d.size()
+            .expect("Disk error")
+            .try_into()
+            .expect("Bitness error"),
+        false,
+    );
 
     let fs = FSHandle::open(&[d.clone()]).ok();
 
@@ -180,7 +183,8 @@ pub fn fsck_single_scan(d: Disk) -> Result<(), FSCKError> {
         d_geo.expect("No intact geometry"),
         &[d_id.expect("No intact superblock")],
         &[d.clone()],
-    );
+    )
+    .expect("Could not load diskgroup");
     info!("Verifying roots...");
     let mut alloclist_locs = BTreeSet::new();
     let mut objectset_locs = BTreeSet::new();
@@ -303,7 +307,7 @@ pub fn fsck_single_scan(d: Disk) -> Result<(), FSCKError> {
         }
         blockmap.set(loc.loc().try_into().expect("Bitness error"), true);
     }
-    info!("Verifying objects...");
+    info!("Verifying allocators...");
     let mut allocs = Vec::new();
     for loc in alloc_locs {
         info!("\tVerifying allocator at {}", loc);
@@ -319,8 +323,14 @@ pub fn fsck_single_scan(d: Disk) -> Result<(), FSCKError> {
     }
     if allocs_ok {
         info!("Reconciling claimed blocks...");
-        let mut blockmap_alloc =
-            bitvec![0; d.size().expect("Disk error").try_into().expect("Bitness error")];
+        let mut blockmap_alloc = BitVec::<u8, Msb0>::new();
+        blockmap_alloc.resize(
+            d.size()
+                .expect("Disk error")
+                .try_into()
+                .expect("Bitness error"),
+            false,
+        );
         for alloc in allocs {
             for (idx, ext) in alloc.extents() {
                 if ext.used {

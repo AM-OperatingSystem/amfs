@@ -1,5 +1,4 @@
-use std::convert::TryInto;
-use std::fs::File;
+use std::{convert::TryInto, fs::File};
 
 use amfs::BLOCK_SIZE;
 

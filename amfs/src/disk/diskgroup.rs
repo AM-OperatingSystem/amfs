@@ -1,15 +1,18 @@
-use crate::BLOCK_SIZE;
-use crate::{AMPointerGlobal, Allocator, Disk, Fragment, Geometry, GeometryFlavor};
-use amos_std::AMResult;
-use std::collections::BTreeMap;
-use std::convert::{TryFrom, TryInto};
+use std::{
+    collections::BTreeMap,
+    convert::{TryFrom, TryInto},
+};
+
+use amos_std::{error::AMErrorFS, AMResult};
+
+use crate::{AMPointerGlobal, Allocator, Disk, Fragment, Geometry, GeometryFlavor, BLOCK_SIZE};
 
 /// Represents a group of disks associated with a geometry
 #[derive(Debug, Clone)]
 pub struct DiskGroup {
     /// The group's geometry object
-    pub geo: Geometry,
-    disks: Vec<Disk>,
+    pub geo:           Geometry,
+    disks:             Vec<Disk>,
     pub(crate) allocs: Vec<Allocator>,
 }
 
@@ -18,8 +21,8 @@ impl DiskGroup {
     #[cfg(feature = "stable")]
     pub fn single(g: Geometry, d: Disk, a: Allocator) -> DiskGroup {
         DiskGroup {
-            geo: g,
-            disks: vec![d],
+            geo:    g,
+            disks:  vec![d],
             allocs: vec![a],
         }
     }

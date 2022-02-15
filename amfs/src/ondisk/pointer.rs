@@ -1,9 +1,12 @@
-use crate::BLOCK_SIZE;
-use crate::{Disk, DiskGroup, GeometryFlavor};
+use std::{
+    convert::{TryFrom, TryInto},
+    fmt,
+};
+
 use amos_std::AMResult;
 use crc32fast::Hasher;
-use std::convert::{TryFrom, TryInto};
-use std::fmt;
+
+use crate::{Disk, DiskGroup, GeometryFlavor, BLOCK_SIZE};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(C)]
@@ -276,10 +279,10 @@ impl AMPointerLocal {
 pub(crate) struct AMPointer {
     location: u64,
     checksum: u32,
-    device: u8,
+    device:   u8,
     geometry: u8,
-    len: u8,
-    padding: u8,
+    len:      u8,
+    padding:  u8,
 }
 
 impl std::cmp::Ord for AMPointer {
@@ -324,10 +327,10 @@ impl AMPointer {
     pub fn null() -> AMPointer {
         AMPointer {
             location: 0,
-            device: 0,
+            device:   0,
             geometry: 0x7F,
-            len: 0,
-            padding: 0,
+            len:      0,
+            padding:  0,
             checksum: 0,
         }
     }

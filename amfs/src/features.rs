@@ -1,5 +1,6 @@
-use bitvec::prelude::*;
 use std::collections::BTreeSet;
+
+use bitvec::prelude::*;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 

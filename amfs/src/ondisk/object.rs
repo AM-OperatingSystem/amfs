@@ -1,12 +1,11 @@
-use crate::{AMPointerGlobal, DiskGroup, AMFS};
-
-use crate::BLOCK_SIZE;
+use std::{
+    collections::{BTreeMap, VecDeque},
+    convert::{TryFrom, TryInto},
+};
 
 use amos_std::AMResult;
 
-use std::convert::{TryFrom, TryInto};
-
-use std::collections::{BTreeMap, VecDeque};
+use crate::{AMPointerGlobal, DiskGroup, AMFS, BLOCK_SIZE};
 
 pub const LIST_HEADER_SIZE: usize = 16;
 pub const FRAGMENT_SIZE: usize = 32;
@@ -15,7 +14,7 @@ pub const FRAGMENT_SIZE: usize = 32;
 #[derive(Clone, Debug)]
 pub struct ObjectSet {
     pub(crate) ptr: AMPointerGlobal,
-    dgs: [Option<DiskGroup>; 16],
+    dgs:            Vec<Option<DiskGroup>>,
 }
 
 /// Header for object list
@@ -443,9 +442,9 @@ impl Object {
 #[repr(C)]
 pub struct Fragment {
     /// The length of the fragment, in bytes
-    pub size: u64,
+    pub size:    u64,
     /// The offset from the pointer location to the start of the fragment
-    pub offset: u64,
+    pub offset:  u64,
     /// A pointer to the block containing the fragment's data
     pub pointer: AMPointerGlobal,
 }

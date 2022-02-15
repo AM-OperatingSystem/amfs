@@ -3,8 +3,7 @@
 #![allow(unknown_lints)]
 #![allow(require_stability_comment)]
 
-use amfs::operations::fsck_single_scan;
-use amfs::DiskFile;
+use amfs::{operations::fsck_single_scan, DiskFile};
 
 fn main() {
     amfs::test::logging::init_log();

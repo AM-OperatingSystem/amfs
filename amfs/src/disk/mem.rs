@@ -1,13 +1,8 @@
-use crate::disk::DiskObj;
-
-use std::cell::RefCell;
-use std::rc::Rc;
-
-use std::convert::TryFrom;
+use std::{cell::RefCell, convert::TryFrom, rc::Rc};
 
 use amos_std::AMResult;
 
-use crate::BLOCK_SIZE;
+use crate::{disk::DiskObj, BLOCK_SIZE};
 
 /// A disk object stored in a file.
 pub struct DiskMem {

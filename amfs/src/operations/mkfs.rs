@@ -1,9 +1,10 @@
 use std::collections::BTreeMap;
 
-use crate::BLOCK_SIZE;
-use crate::{AMPointerLocal, Allocator, Disk, DiskGroup, FSGroup, Geometry, Superblock};
-
 use amos_std::AMResult;
+
+use crate::{
+    AMPointerLocal, Allocator, Disk, DiskGroup, FSGroup, Geometry, Superblock, BLOCK_SIZE,
+};
 
 /// Makes a new AMFS filesystem composed of a single disk.
 #[cfg(feature = "unstable")]

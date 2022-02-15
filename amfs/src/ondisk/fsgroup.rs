@@ -1,26 +1,26 @@
-use std::ops::{Deref, DerefMut};
-use std::{mem, slice};
+use std::{
+    collections::BTreeMap,
+    mem,
+    ops::{Deref, DerefMut},
+    slice,
+};
 
-use std::collections::BTreeMap;
+use amos_std::{error::AMErrorFS, AMResult};
 
-use crate::{AMPointerGlobal, Allocator, DiskGroup, LinkedListGlobal};
-use amos_std::error::AMErrorFS;
-use amos_std::AMResult;
-
-use crate::BLOCK_SIZE;
+use crate::{AMPointerGlobal, Allocator, DiskGroup, LinkedListGlobal, BLOCK_SIZE};
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
 /// A group of filesystems.
 pub struct FSGroup {
-    alloc: AMPointerGlobal,
-    free_queue: AMPointerGlobal,
-    journal: AMPointerGlobal,
+    alloc:       AMPointerGlobal,
+    free_queue:  AMPointerGlobal,
+    journal:     AMPointerGlobal,
     /// A pointer to the root node of the object tree
     pub objects: AMPointerGlobal,
-    directory: u64,
-    txid: u128,
-    _padding: [u8; BLOCK_SIZE - 92],
+    directory:   u64,
+    txid:        u128,
+    _padding:    [u8; BLOCK_SIZE - 92],
 }
 
 #[repr(packed)]
@@ -28,7 +28,7 @@ pub struct FSGroup {
 #[derive(Clone, Copy, Debug)]
 pub struct AllocListEntry {
     /// The disk to which the allocator applies
-    pub disk_id: u64,
+    pub disk_id:   u64,
     /// A pointer to the allocator
     pub allocator: AMPointerGlobal,
 }
@@ -38,7 +38,7 @@ pub struct AllocListEntry {
 #[derive(Clone, Copy, Debug)]
 pub struct FreeQueueEntry {
     /// The txid in which the block was freed
-    pub txid: u128,
+    pub txid:  u128,
     /// A pointer to the block
     pub block: AMPointerGlobal,
 }
@@ -48,13 +48,13 @@ impl FSGroup {
     #[cfg(feature = "unstable")]
     pub fn new() -> FSGroup {
         FSGroup {
-            alloc: AMPointerGlobal::null(),
+            alloc:      AMPointerGlobal::null(),
             free_queue: AMPointerGlobal::null(),
-            journal: AMPointerGlobal::null(),
-            objects: AMPointerGlobal::null(),
-            directory: 0,
-            txid: 0,
-            _padding: [0; BLOCK_SIZE - 92],
+            journal:    AMPointerGlobal::null(),
+            objects:    AMPointerGlobal::null(),
+            directory:  0,
+            txid:       0,
+            _padding:   [0; BLOCK_SIZE - 92],
         }
     }
     /// Gets this group's transaction ID
@@ -144,7 +144,7 @@ impl FSGroup {
         for (k, v) in queue {
             for e in v {
                 res.push(FreeQueueEntry {
-                    txid: *k,
+                    txid:  *k,
                     block: *e,
                 });
             }
@@ -169,7 +169,7 @@ impl FSGroup {
             .iter_mut()
             .map(|(k, v)| {
                 Ok(AllocListEntry {
-                    disk_id: *k,
+                    disk_id:   *k,
                     allocator: v.write_preallocd(dgs, &alloc_blocks[k])?,
                 })
             })
