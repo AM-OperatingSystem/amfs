@@ -40,11 +40,15 @@ impl Disk {
     /// Calculates the expected position of a disk's headers.
     #[cfg(feature = "unstable")]
     pub fn get_header_locs(&self) -> AMResult<[AMPointerLocal; 4]> {
+        let size = self.0.borrow().size()?;
+        if size < 4 {
+            return Err(amos_std::error::AMError::TODO(0));
+        }
         let mut res = [AMPointerLocal::null(); 4];
         res[0].set_loc(0);
         res[1].set_loc(1);
-        res[2].set_loc(self.0.borrow().size()? - 2);
-        res[3].set_loc(self.0.borrow().size()? - 1);
+        res[2].set_loc(size - 2);
+        res[3].set_loc(size - 1);
         Ok(res)
     }
 }
