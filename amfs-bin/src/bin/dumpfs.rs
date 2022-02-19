@@ -124,7 +124,7 @@ fn main() {
                     if !f.objects().is_null() {
                         types[f.objects().loc() as usize] = (
                             BlockType::Objects(ObjectSet::read(
-                                [
+                                vec![
                                     Some(dg.clone()),
                                     None,
                                     None,

@@ -226,7 +226,7 @@ pub fn fsck_single_scan(d: Disk) -> Result<(), FSCKError> {
         }
         info!("\tVerifying objectset at {}", loc);
         let objs = crate::ObjectSet::read(
-            [
+            vec![
                 Some(dgs.clone()),
                 None,
                 None,

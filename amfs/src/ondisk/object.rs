@@ -46,7 +46,7 @@ impl ObjectListHeader {
 impl ObjectSet {
     /// Creates a new object set handle
     #[cfg(feature = "stable")]
-    pub fn read(dgs: [Option<DiskGroup>; 16], ptr: AMPointerGlobal) -> ObjectSet {
+    pub fn read(dgs: Vec<Option<DiskGroup>>, ptr: AMPointerGlobal) -> ObjectSet {
         ObjectSet { ptr, dgs }
     }
     /// Checks the existance of an object with a given ID
