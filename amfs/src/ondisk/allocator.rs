@@ -12,16 +12,14 @@ impl Allocator {
     /// Creates a new allocator
     #[cfg(feature = "stable")]
     pub fn new(size: u64) -> Self {
-        Allocator {
-            0: Rc::new(RefCell::new(AllocatorObj::new(size))),
-        }
+        Allocator(Rc::new(RefCell::new(AllocatorObj::new(size))))
     }
     /// Reads a superblock from disk.
     #[cfg(feature = "stable")]
     pub fn read(d: &[Option<DiskGroup>], ptr: AMPointerGlobal) -> AMResult<Self> {
-        Ok(Allocator {
-            0: Rc::new(RefCell::new(AllocatorObj::read(d, ptr)?)),
-        })
+        Ok(Allocator(Rc::new(RefCell::new(AllocatorObj::read(
+            d, ptr,
+        )?))))
     }
     /// Marks an extent used
     #[cfg(feature = "stable")]

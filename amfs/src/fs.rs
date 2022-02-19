@@ -19,9 +19,7 @@ impl FSHandle {
     /// Creates an AMFS object to mount the fs on a disk
     #[cfg(feature = "unstable")]
     pub fn open(d: &[Disk]) -> AMResult<Self> {
-        Ok(Self {
-            0: Arc::new(RwLock::new(AMFS::open(d)?)),
-        })
+        Ok(Self(Arc::new(RwLock::new(AMFS::open(d)?))))
     }
     /// Write changes to disk
     #[cfg(feature = "unstable")]

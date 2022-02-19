@@ -44,16 +44,12 @@ impl AMPointerGlobal {
     /// Creates a new pointer pointing at a given address and device. Invalid until updated
     #[cfg(feature = "stable")]
     pub fn new(addr: u64, len: u8, geo: u8, dev: u8) -> Self {
-        Self {
-            0: AMPointer::new(addr, len, geo, dev),
-        }
+        Self(AMPointer::new(addr, len, geo, dev))
     }
     /// Creates a null pointer. Guaranteed invalid.
     #[cfg(feature = "stable")]
     pub fn null() -> AMPointerGlobal {
-        AMPointerGlobal {
-            0: AMPointer::null(),
-        }
+        AMPointerGlobal(AMPointer::null())
     }
     /// Validates a pointer against a block on-disk.
     #[cfg(feature = "unstable")]
@@ -212,9 +208,7 @@ impl AMPointerGlobal {
     /// Creates a pointer from an array of bytes
     #[cfg(feature = "stable")]
     pub fn from_bytes(buf: [u8; 16]) -> AMPointerGlobal {
-        AMPointerGlobal {
-            0: AMPointer::from_bytes(buf),
-        }
+        AMPointerGlobal(AMPointer::from_bytes(buf))
     }
 }
 
@@ -222,16 +216,12 @@ impl AMPointerLocal {
     /// Creates a new pointer pointing at a given address. Invalid until updated
     #[cfg(feature = "stable")]
     pub fn new(addr: u64) -> AMPointerLocal {
-        AMPointerLocal {
-            0: AMPointer::new(addr, 0, 1, 0),
-        }
+        AMPointerLocal(AMPointer::new(addr, 0, 1, 0))
     }
     /// Creates a null pointer. Guaranteed invalid.
     #[cfg(feature = "stable")]
     pub fn null() -> AMPointerLocal {
-        AMPointerLocal {
-            0: AMPointer::null(),
-        }
+        AMPointerLocal(AMPointer::null())
     }
     /// Checks if the pointer is null
     #[cfg(feature = "stable")]
@@ -268,9 +258,7 @@ impl AMPointerLocal {
     /// Creates a pointer from an array of bytes
     #[cfg(feature = "stable")]
     pub fn from_bytes(buf: [u8; 16]) -> AMPointerLocal {
-        AMPointerLocal {
-            0: AMPointer::from_bytes(buf),
-        }
+        AMPointerLocal(AMPointer::from_bytes(buf))
     }
 }
 

@@ -32,17 +32,19 @@ impl DiskFile {
             res
         };
         let size = file.metadata()?.len();
-        Ok(super::Disk {
-            0: Rc::new(RefCell::new(DiskFile { f: file, size })),
-        })
+        Ok(super::Disk(Rc::new(RefCell::new(DiskFile {
+            f: file,
+            size,
+        }))))
     }
     /// Creates a disk object using a file.
     #[cfg(feature = "stable")]
     pub fn open_file(file: File) -> AMResult<super::Disk> {
         let size = file.metadata()?.len();
-        Ok(super::Disk {
-            0: Rc::new(RefCell::new(DiskFile { f: file, size })),
-        })
+        Ok(super::Disk(Rc::new(RefCell::new(DiskFile {
+            f: file,
+            size,
+        }))))
     }
 }
 

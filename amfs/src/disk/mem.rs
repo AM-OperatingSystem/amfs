@@ -18,12 +18,10 @@ impl DiskMem {
         for _ in 0..size {
             data.push([0; BLOCK_SIZE]);
         }
-        super::Disk {
-            0: Rc::new(RefCell::new(DiskMem {
-                data,
-                size: size as u64,
-            })),
-        }
+        super::Disk(Rc::new(RefCell::new(DiskMem {
+            data,
+            size: size as u64,
+        })))
     }
 }
 
