@@ -28,7 +28,7 @@ impl DiskGroup {
     }
     /// Creates a disk group containing a single disk
     #[cfg(feature = "stable")]
-    pub fn from_geo(g: Geometry, devids: &[u64], ds: &[Disk]) -> DiskGroup {
+    pub fn from_geo(g: Geometry, devids: &[u64], ds: &[Disk]) -> AMResult<DiskGroup> {
         let mut disks = Vec::new();
         for devid in g.device_ids {
             if devid == 0 {
@@ -37,14 +37,14 @@ impl DiskGroup {
             let diskno = devids
                 .iter()
                 .position(|r| *r == devid)
-                .expect("Superblock with devid matching no disk");
+                .ok_or(AMErrorFS::UnknownDevid)?;
             disks.push(ds[diskno].clone());
         }
-        DiskGroup {
+        Ok(DiskGroup {
             geo: g,
             disks,
             allocs: Vec::new(),
-        }
+        })
     }
     /// Initializes out allocator set from an allocator map
     #[cfg(feature = "stable")]

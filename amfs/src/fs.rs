@@ -187,7 +187,7 @@ impl AMFS {
             let diskno = devids
                 .iter()
                 .position(|r| r == devid)
-                .expect("Superblock with devid matching no disk");
+                .ok_or(AMErrorFS::UnknownDevid)?;
             for (sbn, sbo) in sbs.iter().enumerate() {
                 if let Some(sb) = sbo {
                     for i in 0..16 {
@@ -197,7 +197,7 @@ impl AMFS {
                                     sb.get_geometry(ds[diskno].clone(), i.try_into().or(Err(0))?)
                                 {
                                     info!("Built diskgroup using {:x}:{}:{}", devid, sbn, i);
-                                    self.dgs[i] = Some(DiskGroup::from_geo(geo, devids, ds));
+                                    self.dgs[i] = Some(DiskGroup::from_geo(geo, devids, ds)?);
                                 } else {
                                     error!("Corrupt geometry: {:x}:{}:{}", devid, sbn, i);
                                 }
