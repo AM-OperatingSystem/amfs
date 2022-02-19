@@ -203,7 +203,6 @@ fn feature_test() {
 }
 
 #[test]
-#[serial]
 #[allow(clippy::unwrap_used)]
 pub fn test_superblock() {
     crate::test::logging::init_log();

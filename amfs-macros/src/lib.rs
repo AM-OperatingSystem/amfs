@@ -2,8 +2,8 @@
 #![allow(require_stability_comment)]
 
 use proc_macro::TokenStream;
-
 use proc_macro2::{Ident, Span};
+use syn::LitInt;
 
 #[macro_use]
 extern crate quote;
@@ -11,20 +11,28 @@ extern crate quote;
 #[cfg(not(tarpaulin_include))]
 #[proc_macro]
 pub fn generate_image(input: TokenStream) -> TokenStream {
-    let item: syn::LitInt = syn::parse(input).expect("failed to parse input");
+    let item: LitInt = syn::parse(input).expect("failed to parse input");
     let num_to_gen = item.base10_parse::<usize>().unwrap();
-    let filename = format!("test_{:04}.img", num_to_gen);
+    //let name_to_gen = item.arg2.value();
     let generate_fn = Ident::new(
         format!("generate_{:04}", num_to_gen).as_str(),
         Span::call_site(),
     );
     let output = quote! {
+        fn f() {}
+        fn type_name_of<T>(_: T) -> &'static str {
+            std::any::type_name::<T>()
+        }
+        let name = type_name_of(f);
+        let name_to_gen = &name[..name.len() - 3];
+        let filename = format!("test_{:04}_{}.img", #num_to_gen, name_to_gen);
+
         use std::fs::OpenOptions;
-        let file = OpenOptions::new().read(true).write(true).create(true).open(#filename).unwrap();
+        let file = OpenOptions::new().read(true).write(true).create(true).open(&filename).unwrap();
 
         #generate_fn(&file);
 
-        let mut file = OpenOptions::new().read(true).open(#filename).unwrap();
+        let mut file = OpenOptions::new().read(true).open(&filename).unwrap();
 
         let expected = amfs_tests::imagegen::get_checksums();
 
@@ -43,9 +51,18 @@ pub fn generate_image(input: TokenStream) -> TokenStream {
 pub fn load_image(input: TokenStream) -> TokenStream {
     let item: syn::LitInt = syn::parse(input).expect("failed to parse input");
     let num_to_gen = item.base10_parse::<usize>().unwrap();
-    let filename = format!("test_{:04}.img", num_to_gen);
     let output = quote! {
-        DiskFile::open(#filename).unwrap()
+        {
+            fn f() {}
+            fn type_name_of<T>(_: T) -> &'static str {
+                std::any::type_name::<T>()
+            }
+            let name = type_name_of(f);
+            let name_to_gen = &name[..name.len() - 3];
+            let filename = format!("test_{:04}_{}.img", #num_to_gen, name_to_gen);
+
+            DiskFile::open(&filename).unwrap()
+        }
     };
     output.into()
 }

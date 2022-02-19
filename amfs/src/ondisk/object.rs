@@ -489,7 +489,6 @@ fn list_fragment_size_test() {
 }
 
 #[test]
-#[serial]
 #[allow(clippy::unwrap_used)]
 pub fn test_object() {
     crate::test::logging::init_log();
@@ -501,7 +500,6 @@ pub fn test_object() {
 }
 
 #[test]
-#[serial]
 #[allow(clippy::unwrap_used)]
 pub fn test_insert() {
     crate::test::logging::init_log();
@@ -534,7 +532,6 @@ pub fn test_insert() {
 }
 
 #[test]
-#[serial]
 #[allow(clippy::unwrap_used)]
 pub fn test_truncate() {
     crate::test::logging::init_log();

@@ -17,10 +17,6 @@
 #[macro_use]
 extern crate more_asserts;
 
-#[allow(unused_imports)]
-#[macro_use]
-extern crate serial_test;
-
 #[macro_use]
 extern crate log;
 
