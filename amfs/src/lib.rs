@@ -6,7 +6,6 @@
 #![allow(clippy::new_without_default)]
 #![allow(clippy::upper_case_acronyms)]
 #![allow(clippy::comparison_chain)]
-#![allow(clippy::if_then_panic)]
 #![allow(dead_code)]
 #![warn(clippy::unwrap_used)]
 #![warn(clippy::print_stdout)]

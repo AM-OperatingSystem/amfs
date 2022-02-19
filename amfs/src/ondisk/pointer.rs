@@ -201,7 +201,7 @@ impl AMPointerGlobal {
                 self.write(start_block * BLOCK_SIZE, BLOCK_SIZE, dgs, &buf)?;
                 Ok(size)
             } else {
-                unimplemented!();
+                todo!();
             }
         }
     }
