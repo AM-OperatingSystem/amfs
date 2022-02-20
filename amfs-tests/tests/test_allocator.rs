@@ -72,3 +72,30 @@ fn mark_used() {
     let blk = a.alloc_blocks(1024);
     assert!(blk != None);
 }
+
+#[test]
+fn alloc_many() {
+    let mut a = Allocator::new(1024);
+    a.mark_used(0, 1).unwrap();
+    a.mark_used(1, 1).unwrap();
+    a.mark_used(510, 2).unwrap();
+    a.mark_used(512, 2).unwrap();
+    a.mark_used(1023, 1).unwrap();
+    a.mark_used(1022, 1).unwrap();
+    let blk = a.alloc_many(1016).unwrap();
+    assert!(blk.len()==1016);
+    for b in blk {
+        a.free(b);
+    }
+    let blk = a.alloc_many(1017);
+    assert!(blk == None);
+}
+
+#[test]
+fn alloc_many_free_on_fail() {
+    let mut a = Allocator::new(1024);
+    let blk = a.alloc_many(1025);
+    assert!(blk == None);
+    let blk = a.alloc_blocks(1024);
+    assert!(blk != None);
+}
