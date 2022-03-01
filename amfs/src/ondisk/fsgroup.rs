@@ -6,11 +6,12 @@ use std::{
 };
 
 use amos_std::{error::AMErrorFS, AMResult};
+use type_layout::TypeLayout;
 
 use crate::{AMPointerGlobal, Allocator, DiskGroup, LinkedListGlobal, BLOCK_SIZE};
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, TypeLayout)]
 /// A group of filesystems.
 pub struct FSGroup {
     alloc:       AMPointerGlobal,

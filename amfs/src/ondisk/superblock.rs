@@ -8,6 +8,7 @@ use std::{
 use amos_std::{error::AMErrorFS, AMResult};
 use bitvec::prelude::*;
 use crc32fast::Hasher;
+use type_layout::TypeLayout;
 
 use crate::{
     AMFeatures, AMPointerGlobal, AMPointerLocal, Disk, DiskGroup, FSGroup, Geometry, BLOCK_SIZE,
@@ -15,7 +16,7 @@ use crate::{
 };
 
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, TypeLayout)]
 /// A volume superblock. Contains volume-wide information
 pub struct Superblock {
     signature:              [u8; 8],
