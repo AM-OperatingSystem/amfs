@@ -48,13 +48,15 @@ impl DiskGroup {
     }
     /// Initializes out allocator set from an allocator map
     #[cfg(feature = "stable")]
-    pub fn load_allocators(&mut self, allocs: BTreeMap<u64, Allocator>) {
+    pub fn load_allocators(&mut self, allocs: BTreeMap<u64, Allocator>) -> AMResult<()> {
         for devid in self.geo.device_ids {
             if devid == 0 {
                 break;
             }
-            self.allocs.push(allocs.get(&devid).unwrap().clone());
+            self.allocs
+                .push(allocs.get(&devid).ok_or(AMErrorFS::NoAllocator)?.clone());
         }
+        Ok(())
     }
     /// Gets the nth disk
     #[cfg(feature = "stable")]
@@ -67,7 +69,7 @@ impl DiskGroup {
     pub fn alloc_blocks(&mut self, n: u64) -> AMResult<AMPointerGlobal> {
         Ok(match self.geo.flavor() {
             GeometryFlavor::Single => {
-                let ptr = self.allocs[0].alloc_blocks(n).ok_or(0)?;
+                let ptr = self.allocs[0].alloc_blocks(n)?;
                 AMPointerGlobal::new(ptr, 1, 0, 0)
             }
             _ => unimplemented!(), // TODO(#3): Add support for additional geometries
@@ -81,7 +83,7 @@ impl DiskGroup {
                 let mut res = Vec::new();
                 let mut size_rem = usize::try_from(n)?;
                 loop {
-                    let ptr = self.allocs[0].alloc_blocks(1).ok_or(0)?;
+                    let ptr = self.allocs[0].alloc_blocks(1)?;
                     let size_frag = if size_rem > BLOCK_SIZE {
                         BLOCK_SIZE
                     } else {
@@ -107,8 +109,7 @@ impl DiskGroup {
     pub fn alloc_many(&mut self, count: u64) -> AMResult<Vec<AMPointerGlobal>> {
         Ok(match self.geo.flavor() {
             GeometryFlavor::Single => self.allocs[0]
-                .alloc_many(count)
-                .ok_or(0)?
+                .alloc_many(count)?
                 .iter()
                 .map(|x| AMPointerGlobal::new(*x, 1, 0, 0))
                 .collect(),

@@ -1,6 +1,6 @@
 use std::{cell::RefCell, convert::TryFrom, rc::Rc};
 
-use amos_std::AMResult;
+use amos_std::{error::AMError, AMResult};
 
 use crate::{disk::DiskObj, BLOCK_SIZE};
 
@@ -28,12 +28,16 @@ impl DiskMem {
 impl DiskObj for DiskMem {
     #[cfg(feature = "stable")]
     fn read_at(&mut self, block: u64, buffer: &mut [u8]) -> AMResult<usize> {
-        buffer.copy_from_slice(self.data.get(usize::try_from(block).or(Err(0))?).unwrap());
+        buffer.copy_from_slice(
+            self.data
+                .get(usize::try_from(block).or(Err(AMError::TODO(0)))?)
+                .ok_or(AMError::TODO(0))?,
+        );
         Ok(BLOCK_SIZE)
     }
     #[cfg(feature = "stable")]
     fn write_at(&mut self, block: u64, buffer: &[u8]) -> AMResult<usize> {
-        self.data[usize::try_from(block).or(Err(0))?].copy_from_slice(buffer);
+        self.data[usize::try_from(block).or(Err(AMError::TODO(0)))?].copy_from_slice(buffer);
         Ok(BLOCK_SIZE)
     }
     #[cfg(feature = "stable")]

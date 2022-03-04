@@ -156,7 +156,7 @@ impl Superblock {
                 return Ok(v);
             }
         }
-        Err(AMErrorFS::NoRootgroup.into())
+        Err(AMErrorFS::NoFSGroup.into())
     }
 }
 

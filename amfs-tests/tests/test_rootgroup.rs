@@ -1,7 +1,7 @@
 use amfs::DiskFile;
 use amfs_macros::*;
 use amfs_tests::imagegen::generators::*;
-use amos_std::error::{AMError, AMErrorFS};
+use amos_std::error::AMErrorFS;
 
 #[test_fs]
 fn test_missing_rootgroup() {
@@ -17,8 +17,12 @@ fn test_missing_rootgroup() {
     for i in sb_locs {
         let sb = Superblock::read(d.clone(), i).unwrap();
         assert_eq!(
-            sb.get_group(&[Some(dg.clone())]).err(),
-            Some(AMError::FS(AMErrorFS::NoRootgroup))
+            sb.get_group(&[Some(dg.clone())])
+                .err()
+                .unwrap()
+                .downcast::<AMErrorFS>()
+                .unwrap(),
+            AMErrorFS::NoFSGroup
         )
     }
 }

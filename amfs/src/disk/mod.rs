@@ -1,6 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
-use amos_std::AMResult;
+use amos_std::{error::AMError, AMResult};
 
 use crate::AMPointerLocal;
 
@@ -42,7 +42,7 @@ impl Disk {
     pub fn get_header_locs(&self) -> AMResult<[AMPointerLocal; 4]> {
         let size = self.0.borrow().size()?;
         if size < 4 {
-            return Err(amos_std::error::AMError::TODO(0));
+            return Err(AMError::TODO(0).into());
         }
         let mut res = [AMPointerLocal::null(); 4];
         res[0].set_loc(0);

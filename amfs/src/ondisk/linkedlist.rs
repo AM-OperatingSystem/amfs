@@ -1,6 +1,6 @@
 use std::convert::TryFrom;
 
-use amos_std::AMResult;
+use amos_std::{error::AMErrorFS, AMResult};
 
 use crate::{any_as_u8_slice, u8_slice_as_any, AMPointerGlobal, DiskGroup, BLOCK_SIZE};
 
@@ -71,7 +71,7 @@ impl<T: Copy + std::fmt::Debug> LinkedListGlobal<Vec<T>> for Vec<T> {
         };
 
         let mut blockptrs = (0..blks)
-            .map(|_| dg.as_mut().ok_or(0)?.alloc_blocks(1))
+            .map(|_| dg.as_mut().ok_or(AMErrorFS::NoDiskgroup)?.alloc_blocks(1))
             .collect::<AMResult<Vec<AMPointerGlobal>>>()?;
         blockptrs.push(AMPointerGlobal::null());
         let mut headers: Vec<LLGHeader> = (0..blks)
@@ -137,7 +137,10 @@ impl<T: Copy + std::fmt::Debug> LinkedListGlobal<Vec<T>> for Vec<T> {
         } else {
             (count + (ent_each - 1)) / ent_each
         };
-        let res = dgs[n as usize].as_mut().ok_or(0)?.alloc_many(blks as u64);
+        let res = dgs[n as usize]
+            .as_mut()
+            .ok_or(AMErrorFS::NoDiskgroup)?
+            .alloc_many(blks as u64);
         res
     }
     #[cfg(feature = "unstable")]

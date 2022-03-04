@@ -3,7 +3,7 @@ use std::{
     fmt,
 };
 
-use amos_std::AMResult;
+use amos_std::{error::AMError, AMResult};
 use crc32fast::Hasher;
 
 use crate::{Disk, DiskGroup, GeometryFlavor, BLOCK_SIZE};
@@ -108,19 +108,29 @@ impl AMPointerGlobal {
     ) -> AMResult<usize> {
         //Single whole block writes are atomic
         if start == 0 && size == BLOCK_SIZE {
-            match dgs[self.geo() as usize].as_ref().ok_or(0)?.geo.flavor() {
+            match dgs[self.geo() as usize]
+                .as_ref()
+                .ok_or(AMError::TODO(0))?
+                .geo
+                .flavor()
+            {
                 GeometryFlavor::Single => dgs[self.geo() as usize]
                     .as_ref()
-                    .ok_or(0)?
+                    .ok_or(AMError::TODO(0))?
                     .get_disk(0)
                     .read_at(self.loc(), data),
                 _ => unimplemented!(), // TODO(#3): Add support for additional geometries
             }
         } else if start % BLOCK_SIZE == 0 && size == BLOCK_SIZE {
-            match dgs[self.geo() as usize].as_ref().ok_or(0)?.geo.flavor() {
+            match dgs[self.geo() as usize]
+                .as_ref()
+                .ok_or(AMError::TODO(0))?
+                .geo
+                .flavor()
+            {
                 GeometryFlavor::Single => dgs[self.geo() as usize]
                     .as_ref()
-                    .ok_or(0)?
+                    .ok_or(AMError::TODO(0))?
                     .get_disk(0)
                     .read_at(
                         (usize::try_from(self.loc())? + start / BLOCK_SIZE).try_into()?,
@@ -169,19 +179,29 @@ impl AMPointerGlobal {
     ) -> AMResult<usize> {
         //Single whole block writes are atomic
         if start == 0 && size == BLOCK_SIZE {
-            match dgs[self.geo() as usize].as_ref().ok_or(0)?.geo.flavor() {
+            match dgs[self.geo() as usize]
+                .as_ref()
+                .ok_or(AMError::TODO(0))?
+                .geo
+                .flavor()
+            {
                 GeometryFlavor::Single => dgs[self.geo() as usize]
                     .as_ref()
-                    .ok_or(0)?
+                    .ok_or(AMError::TODO(0))?
                     .get_disk(0)
                     .write_at(self.loc(), data),
                 _ => unimplemented!(), // TODO(#3): Add support for additional geometries
             }
         } else if start % BLOCK_SIZE == 0 && size == BLOCK_SIZE {
-            match dgs[self.geo() as usize].as_ref().ok_or(0)?.geo.flavor() {
+            match dgs[self.geo() as usize]
+                .as_ref()
+                .ok_or(AMError::TODO(0))?
+                .geo
+                .flavor()
+            {
                 GeometryFlavor::Single => dgs[self.geo() as usize]
                     .as_ref()
-                    .ok_or(0)?
+                    .ok_or(AMError::TODO(0))?
                     .get_disk(0)
                     .write_at(
                         (usize::try_from(self.loc())? + start / BLOCK_SIZE).try_into()?,
@@ -209,6 +229,12 @@ impl AMPointerGlobal {
     #[cfg(feature = "stable")]
     pub fn from_bytes(buf: [u8; 16]) -> AMPointerGlobal {
         AMPointerGlobal(AMPointer::from_bytes(buf))
+    }
+
+    /// Creates an array of bytes from a pointer
+    #[cfg(feature = "stable")]
+    pub fn as_bytes(&self) -> [u8; 16] {
+        self.0.as_bytes()
     }
 }
 
@@ -259,6 +285,12 @@ impl AMPointerLocal {
     #[cfg(feature = "stable")]
     pub fn from_bytes(buf: [u8; 16]) -> AMPointerLocal {
         AMPointerLocal(AMPointer::from_bytes(buf))
+    }
+
+    /// Creates an array of bytes from a pointer
+    #[cfg(feature = "stable")]
+    pub fn as_bytes(&self) -> [u8; 16] {
+        self.0.as_bytes()
     }
 }
 
@@ -348,6 +380,11 @@ impl AMPointer {
     #[cfg(feature = "stable")]
     pub fn from_bytes(buf: [u8; 16]) -> AMPointer {
         unsafe { std::ptr::read(buf.as_ptr() as *const _) }
+    }
+
+    #[cfg(feature = "stable")]
+    pub fn as_bytes(&self) -> [u8; 16] {
+        unsafe { std::ptr::read(self as *const AMPointer as *const _) }
     }
 }
 

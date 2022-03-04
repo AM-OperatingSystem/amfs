@@ -1,6 +1,9 @@
 use std::{cell::RefCell, collections::BTreeMap, rc::Rc};
 
-use amos_std::AMResult;
+use amos_std::{
+    error::{AMError, AMErrorFS},
+    AMResult,
+};
 
 use crate::{AMPointerGlobal, DiskGroup, LinkedListGlobal};
 
@@ -28,12 +31,12 @@ impl Allocator {
     }
     /// Allocates a contiguous space of a given size
     #[cfg(feature = "stable")]
-    pub fn alloc_blocks(&mut self, size: u64) -> Option<u64> {
+    pub fn alloc_blocks(&mut self, size: u64) -> AMResult<u64> {
         self.0.borrow_mut().alloc(size)
     }
     /// Allocates several blocks, not necessarily contiguous
     #[cfg(feature = "unstable")]
-    pub fn alloc_many(&mut self, count: u64) -> Option<Vec<u64>> {
+    pub fn alloc_many(&mut self, count: u64) -> AMResult<Vec<u64>> {
         self.0.borrow_mut().alloc_many(count)
     }
     /// Writes an allocator to disk.
@@ -43,7 +46,7 @@ impl Allocator {
     }
     /// Frees a block of space
     #[cfg(feature = "stable")]
-    pub fn free(&mut self, start: u64) {
+    pub fn free(&mut self, start: u64) -> AMResult<()> {
         self.0.borrow_mut().free(start)
     }
     /// Returns the amount of space free
@@ -78,7 +81,10 @@ impl Allocator {
         } else {
             (exlen + (ent_each - 1)) / ent_each
         };
-        let mut res = dgs[n as usize].as_mut().ok_or(0)?.alloc_many(blks as u64)?;
+        let mut res = dgs[n as usize]
+            .as_mut()
+            .ok_or(AMErrorFS::NoDiskgroup)?
+            .alloc_many(blks as u64)?;
         loop {
             let exlen = self.0.borrow().extents.len();
             let blks = if exlen == 0 {
@@ -92,7 +98,7 @@ impl Allocator {
             res.append(
                 &mut dgs[n as usize]
                     .as_mut()
-                    .ok_or(0)?
+                    .ok_or(AMErrorFS::NoDiskgroup)?
                     .alloc_many((blks - res.len()) as u64)?,
             )
         }
@@ -160,7 +166,7 @@ impl AllocatorObj {
         self.size
     }
     #[cfg(feature = "stable")]
-    fn alloc(&mut self, size: u64) -> Option<u64> {
+    fn alloc(&mut self, size: u64) -> AMResult<u64> {
         assert!(size > 0);
         assert_le!(size, self.size);
         trace!("Allocating block of size: {:x}", size);
@@ -171,7 +177,7 @@ impl AllocatorObj {
             if ex.size == size {
                 trace!("Found exact match");
                 ex.used = true;
-                return Some(*a);
+                return Ok(*a);
             }
         }
         let mut exs = None;
@@ -186,7 +192,7 @@ impl AllocatorObj {
             }
         }
         if let Some((a, sa, se)) = exs {
-            *self.extents.get_mut(&a).unwrap() = Extent {
+            *self.extents.get_mut(&a).ok_or(AMError::TODO(0))? = Extent {
                 size: sa,
                 used: true,
             };
@@ -197,28 +203,29 @@ impl AllocatorObj {
                     used: false,
                 },
             );
-            return Some(a);
+            return Ok(a);
         }
-        None
+        Err(AMErrorFS::AllocFailed.into())
     }
     #[cfg(feature = "unstable")]
-    fn alloc_many(&mut self, count: u64) -> Option<Vec<u64>> {
+    fn alloc_many(&mut self, count: u64) -> AMResult<Vec<u64>> {
         let mut res = Vec::new();
         for _ in 0..count {
-            if let Some(v) = self.alloc(1) {
+            if let Ok(v) = self.alloc(1) {
                 res.push(v);
             } else {
                 for a in res {
-                    self.free(a);
+                    self.free(a)
+                        .unwrap_or_else(|_| panic!("Failed to free after failed allocation"));
                 }
-                return None;
+                return Err(AMErrorFS::AllocFailed.into());
             }
         }
-        Some(res)
+        Ok(res)
     }
     #[cfg(feature = "stable")]
-    fn free(&mut self, addr: u64) {
-        let ex = self.extents.get_mut(&addr).unwrap();
+    fn free(&mut self, addr: u64) -> AMResult<()> {
+        let ex = self.extents.get_mut(&addr).ok_or(AMError::TODO(0))?;
         assert!(ex.used);
         ex.used = false;
         let mut ex = ex.clone(); //Make a copy here to free the extent map;
@@ -235,14 +242,15 @@ impl AllocatorObj {
             }
         }
         if let Some((n_a, n_s)) = merge_next {
-            self.extents.get_mut(&addr).unwrap().size += n_s;
+            self.extents.get_mut(&addr).ok_or(AMError::TODO(0))?.size += n_s;
             ex.size += n_s;
             self.extents.remove(&n_a);
         }
         if let Some(p_a) = merge_previous {
-            self.extents.get_mut(&p_a).unwrap().size += ex.size;
+            self.extents.get_mut(&p_a).ok_or(AMError::TODO(0))?.size += ex.size;
             self.extents.remove(&addr);
         }
+        Ok(())
     }
     #[cfg(feature = "stable")]
     fn mark_used(&mut self, start: u64, size: u64) -> AMResult<()> {
@@ -250,14 +258,17 @@ impl AllocatorObj {
         if containing.is_none() {
             panic!("No containing extent");
         }
-        assert!(!containing.ok_or(0)?.1.used);
-        let c = (*containing.ok_or(0)?.0, containing.ok_or(0)?.1.size);
+        assert!(!containing.ok_or(AMError::TODO(0))?.1.used);
+        let c = (
+            *containing.ok_or(AMError::TODO(0))?.0,
+            containing.ok_or(AMError::TODO(0))?.1.size,
+        );
         assert!(c.0 + c.1 >= start + size);
         if start == c.0 {
             if c.1 == size {
-                self.extents.get_mut(&c.0).ok_or(0)?.used = true;
+                self.extents.get_mut(&c.0).ok_or(AMError::TODO(0))?.used = true;
             } else {
-                let ex = self.extents.get_mut(&c.0).ok_or(0)?;
+                let ex = self.extents.get_mut(&c.0).ok_or(AMError::TODO(0))?;
                 ex.used = true;
                 ex.size = size;
                 self.extents.insert(
@@ -269,11 +280,11 @@ impl AllocatorObj {
                 );
             }
         } else if c.0 + c.1 == start + size {
-            let ex = self.extents.get_mut(&c.0).ok_or(0)?;
+            let ex = self.extents.get_mut(&c.0).ok_or(AMError::TODO(0))?;
             ex.size -= size;
             self.extents.insert(start, Extent { size, used: true });
         } else {
-            let ex = self.extents.get_mut(&c.0).unwrap();
+            let ex = self.extents.get_mut(&c.0).ok_or(AMError::TODO(0))?;
             ex.size = start - c.0;
             self.extents.insert(start, Extent { size, used: true });
             self.extents.insert(
@@ -347,7 +358,7 @@ fn rw_test() {
     let mut a = AllocatorObj::new(10005);
 
     for _ in 0..2000 {
-        a.alloc(rand::thread_rng().gen_range(1..5));
+        a.alloc(rand::thread_rng().gen_range(1..5)).unwrap();
     }
 
     a.mark_used(10000, 5).unwrap();

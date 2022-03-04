@@ -4,7 +4,10 @@ use std::{
     sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 
-use amos_std::{error::AMErrorFS, AMResult};
+use amos_std::{
+    error::{AMError, AMErrorFS},
+    AMResult,
+};
 
 use crate::{
     features::AMFeatures, AMPointerGlobal, Allocator, Disk, DiskGroup, FSGroup, Fragment,
@@ -73,11 +76,11 @@ impl FSHandle {
     }
     #[cfg(feature = "stable")]
     pub(crate) fn write(&self) -> AMResult<RwLockWriteGuard<AMFS>> {
-        Ok(self.0.write()?)
+        Ok(self.0.write().or(Err(AMError::Poison))?)
     }
     #[cfg(feature = "stable")]
     pub(crate) fn read(&self) -> AMResult<RwLockReadGuard<AMFS>> {
-        Ok(self.0.read()?)
+        Ok(self.0.read().or(Err(AMError::Poison))?)
     }
 }
 
@@ -150,7 +153,7 @@ impl AMFS {
                     }
                 }
             })
-            .ok_or(AMErrorFS::NoSuperblock)?
+            .ok_or(AMErrorFS::NoFSGroup)?
             .1)
     }
     #[cfg(feature = "stable")]
@@ -191,9 +194,10 @@ impl AMFS {
                     for i in 0..16 {
                         if self.dgs[i].is_none() {
                             if !sb.geometries[i].is_null() {
-                                if let Ok(geo) =
-                                    sb.get_geometry(ds[diskno].clone(), i.try_into().or(Err(0))?)
-                                {
+                                if let Ok(geo) = sb.get_geometry(
+                                    ds[diskno].clone(),
+                                    i.try_into().or(Err(AMErrorFS::NoDiskgroup))?,
+                                ) {
                                     info!("Built diskgroup using {:x}:{}:{}", devid, sbn, i);
                                     self.dgs[i] = Some(DiskGroup::from_geo(geo, devids, ds)?);
                                 } else {
@@ -214,7 +218,7 @@ impl AMFS {
             .get_group(&self.dgs)?
             .get_allocators(&self.dgs)?;
         for dg in self.dgs.iter_mut().flatten() {
-            dg.load_allocators(self.allocators.clone());
+            dg.load_allocators(self.allocators.clone())?;
         }
         self.free_queue = self
             .get_superblock()?
@@ -225,9 +229,12 @@ impl AMFS {
     #[cfg(feature = "unstable")]
     pub(crate) fn alloc_blocks(&mut self, n: u64) -> AMResult<Option<AMPointerGlobal>> {
         let lock = self.lock.clone();
-        let _handle = lock.read()?;
+        let _handle = lock.read().or(Err(AMError::Poison))?;
 
-        let mut res = self.dgs[0].clone().ok_or(0)?.alloc_blocks(n)?;
+        let mut res = self.dgs[0]
+            .clone()
+            .ok_or(AMErrorFS::NoDiskgroup)?
+            .alloc_blocks(n)?;
         res.update(&self.dgs)?;
         self.journal.push_back(JournalEntry::Alloc(res));
 
@@ -236,9 +243,12 @@ impl AMFS {
     #[cfg(feature = "unstable")]
     pub(crate) fn alloc_bytes(&mut self, n: u64) -> AMResult<Vec<Fragment>> {
         let lock = self.lock.clone();
-        let _handle = lock.read()?;
+        let _handle = lock.read().or(Err(AMError::Poison))?;
 
-        let mut res = self.dgs[0].clone().ok_or(0)?.alloc_bytes(n)?;
+        let mut res = self.dgs[0]
+            .clone()
+            .ok_or(AMError::TODO(0))?
+            .alloc_bytes(n)?;
         for p in &mut res {
             p.pointer.update(&self.dgs)?;
         }
@@ -249,7 +259,7 @@ impl AMFS {
     #[cfg(feature = "unstable")]
     pub(crate) fn realloc(&mut self, ptr: AMPointerGlobal) -> AMResult<Option<AMPointerGlobal>> {
         let lock = self.lock.clone();
-        let _handle = lock.read()?;
+        let _handle = lock.read().or(Err(AMError::Poison))?;
 
         let n = ptr.length();
         let new_ptr = if let Some(p) = self.alloc_blocks(n.into())? {
@@ -266,7 +276,7 @@ impl AMFS {
     pub(crate) fn free(&mut self, ptr: AMPointerGlobal) -> AMResult<()> {
         info!("Freeing {}", ptr);
         let lock = self.lock.clone();
-        let _handle = lock.read()?;
+        let _handle = lock.read().or(Err(AMError::Poison))?;
 
         self.journal.push_back(JournalEntry::Free(ptr));
         if let Some(e) = self.free_queue.get_mut(&self.cur_txid) {
@@ -299,7 +309,10 @@ impl AMFS {
     fn truncate_object(&mut self, id: u64, len: u64) -> AMResult<()> {
         assert!(self.get_objects()?.exists_object(id)?);
         let dgs = &self.dgs.clone();
-        let mut obj = self.get_objects()?.get_object(id)?.ok_or(0)?;
+        let mut obj = self
+            .get_objects()?
+            .get_object(id)?
+            .ok_or(AMErrorFS::NoObject)?;
         obj.truncate(self, len, dgs)?;
         let objs = self.get_objects()?.clone();
         let objs = objs.set_object(self, id, obj)?;
@@ -310,7 +323,10 @@ impl AMFS {
     #[cfg(feature = "unstable")]
     fn write_object(&mut self, id: u64, start: u64, data: &[u8]) -> AMResult<u64> {
         let dgs = &self.dgs.clone();
-        let mut obj = self.get_objects()?.get_object(id)?.ok_or(0)?;
+        let mut obj = self
+            .get_objects()?
+            .get_object(id)?
+            .ok_or(AMErrorFS::NoObject)?;
         let res = obj.write(self, start, data, dgs)?;
         let objs = self.get_objects()?.clone();
         let objs = objs.set_object(self, id, obj)?;
@@ -320,7 +336,7 @@ impl AMFS {
     /// Writes to the object corresponding to a given ID
     #[cfg(feature = "unstable")]
     fn create_object(&mut self, id: u64, size: u64) -> AMResult<()> {
-        let ptr = self.alloc_blocks(1)?.ok_or(0)?;
+        let ptr = self.alloc_blocks(1)?.ok_or(AMError::TODO(0))?;
         let frag = Fragment::new(size, 0, ptr);
         let obj = Object::new(&[frag]);
         let objs = self.get_objects()?.clone();
@@ -341,8 +357,8 @@ impl AMFS {
     #[cfg(feature = "unstable")]
     fn commit(&mut self) -> AMResult<()> {
         let lock = self.lock.clone();
-        let _handle = lock.write()?;
-        let mut dg = self.dgs[0].clone().ok_or(0)?;
+        let _handle = lock.write().or(Err(AMError::Poison))?;
+        let mut dg = self.dgs[0].clone().ok_or(AMErrorFS::NoDiskgroup)?;
         let mut root_group = self.get_root_group()?;
         root_group.objects = self.get_objects()?.ptr;
         let mut root_ptr = dg.alloc_blocks(1)?;
@@ -352,7 +368,8 @@ impl AMFS {
         // Write superblocks
         for disk_id in &self.diskids {
             for i in 0..4 {
-                if let Some(sb) = &mut self.superblocks.get_mut(disk_id).ok_or(0)?[i] {
+                if let Some(sb) = &mut self.superblocks.get_mut(disk_id).ok_or(AMError::TODO(0))?[i]
+                {
                     sb.latest_root += 1;
                     sb.rootnodes[usize::from(sb.latest_root)] = root_ptr;
                     let header_locs = self.disks[disk_id].get_header_locs()?;

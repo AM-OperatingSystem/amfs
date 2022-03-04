@@ -9,9 +9,8 @@ pub struct CleanOnDrop<T> {
 }
 
 impl<T> CleanOnDrop<AMResult<T>> {
-    pub fn unwrap(mut self) -> CleanOnDrop<T>{
-
-        let mut contents = AMResult::Err(AMError::Uninit);
+    pub fn unwrap(mut self) -> CleanOnDrop<T> {
+        let mut contents = AMResult::Err(AMError::Uninit.into());
         let mut file = String::new();
 
         std::mem::swap(&mut self.contents, &mut contents);

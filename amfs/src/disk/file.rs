@@ -6,7 +6,7 @@ use std::{
     rc::Rc,
 };
 
-use amos_std::AMResult;
+use amos_std::{error::AMError, AMResult};
 
 use crate::{disk::DiskObj, BLOCK_SIZE};
 
@@ -28,7 +28,7 @@ impl DiskFile {
                 .write(true)
                 .create(true)
                 .open(f)?;
-            res.set_len((100 * BLOCK_SIZE).try_into().or(Err(0))?)?;
+            res.set_len((100 * BLOCK_SIZE).try_into().or(Err(AMError::TODO(0)))?)?;
             res
         };
         let size = file.metadata()?.len();
@@ -53,18 +53,18 @@ impl DiskObj for DiskFile {
     fn read_at(&mut self, block: u64, buffer: &mut [u8]) -> AMResult<usize> {
         self.f
             .seek(SeekFrom::Start(block * (BLOCK_SIZE as u64)))
-            .or(Err(0))?;
+            .or(Err(AMError::TODO(0)))?;
         assert!(buffer.len() == BLOCK_SIZE);
-        self.f.read_exact(buffer).or(Err(0))?;
+        self.f.read_exact(buffer).or(Err(AMError::TODO(0)))?;
         Ok(buffer.len())
     }
     #[cfg(feature = "stable")]
     fn write_at(&mut self, block: u64, buffer: &[u8]) -> AMResult<usize> {
         self.f
             .seek(SeekFrom::Start(block * (BLOCK_SIZE as u64)))
-            .or(Err(0))?;
+            .or(Err(AMError::TODO(0)))?;
         assert!(buffer.len() == BLOCK_SIZE);
-        self.f.write_all(buffer).or(Err(0))?;
+        self.f.write_all(buffer).or(Err(AMError::TODO(0)))?;
         Ok(buffer.len())
     }
     #[cfg(feature = "unstable")]
@@ -73,7 +73,7 @@ impl DiskObj for DiskFile {
     }
     #[cfg(feature = "stable")]
     fn sync(&mut self) -> AMResult<()> {
-        self.f.sync_all().or(Err(0))?;
+        self.f.sync_all().or(Err(AMError::TODO(0)))?;
         Ok(())
     }
 }

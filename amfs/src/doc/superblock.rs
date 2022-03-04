@@ -6,14 +6,12 @@
 //! Superblocks are stored in predetermined locations: Two in the first two blocks of the disk, two in the last two blocks:
 //! ```
 //! # use amfs::DiskMem;
-//! # use amos_std::error::AMError;
 //! let disk = DiskMem::open(1000);
-//! let sb_locs = disk.get_header_locs()?;
+//! let sb_locs = disk.get_header_locs().unwrap();
 //! assert_eq!(sb_locs[0].loc(), 0);
 //! assert_eq!(sb_locs[1].loc(), 1);
 //! assert_eq!(sb_locs[2].loc(), 998);
 //! assert_eq!(sb_locs[3].loc(), 999);
-//! # Ok::<(), AMError>(())
 //! ```
 //!
 //!

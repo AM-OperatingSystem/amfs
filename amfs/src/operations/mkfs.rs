@@ -31,7 +31,7 @@ pub fn mkfs_single(mut d: Disk) -> AMResult<()> {
     geom.device_ids[0] = devid;
     for sb in &mut sbs {
         //Create geometry
-        let geo_ptr = free.alloc_blocks(1).ok_or(0)?;
+        let geo_ptr = free.alloc_blocks(1)?;
         let geo_ptr = geom.write(d.clone(), AMPointerLocal::new(geo_ptr))?;
 
         sb.geometries[0] = geo_ptr;

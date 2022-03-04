@@ -3,7 +3,7 @@ use std::{
     convert::{TryFrom, TryInto},
 };
 
-use amos_std::AMResult;
+use amos_std::{error::AMError, AMResult};
 
 use crate::{AMPointerGlobal, DiskGroup, AMFS, BLOCK_SIZE};
 
@@ -66,8 +66,11 @@ impl ObjectSet {
             }
             let ptr = ptr.expect("PANIC");
             let blk = ptr.read_vec(&self.dgs)?;
-            let header =
-                ObjectListHeader::from_bytes(blk[..LIST_HEADER_SIZE].try_into().or(Err(0))?);
+            let header = ObjectListHeader::from_bytes(
+                blk[..LIST_HEADER_SIZE]
+                    .try_into()
+                    .or(Err(AMError::TODO(0)))?,
+            );
             if header.n_entries & 0x8000000000000000 != 0 {
                 todo!();
             } else {
@@ -76,7 +79,10 @@ impl ObjectSet {
                     let mut idx = header.start_idx;
                     while idx < id {
                         loop {
-                            if u64::from_le_bytes(blk[pos..pos + 8].try_into().or(Err(0))?) == 0 {
+                            if u64::from_le_bytes(
+                                blk[pos..pos + 8].try_into().or(Err(AMError::TODO(0)))?,
+                            ) == 0
+                            {
                                 pos += 8;
                                 break;
                             }
@@ -86,11 +92,16 @@ impl ObjectSet {
                     }
                     let mut frags = Vec::new();
                     loop {
-                        if u64::from_le_bytes(blk[pos..pos + 8].try_into().or(Err(0))?) == 0 {
+                        if u64::from_le_bytes(
+                            blk[pos..pos + 8].try_into().or(Err(AMError::TODO(0)))?,
+                        ) == 0
+                        {
                             break;
                         }
                         frags.push(Fragment::from_bytes(
-                            blk[pos..pos + FRAGMENT_SIZE].try_into().or(Err(0))?,
+                            blk[pos..pos + FRAGMENT_SIZE]
+                                .try_into()
+                                .or(Err(AMError::TODO(0)))?,
                         ));
                         pos += FRAGMENT_SIZE;
                     }
@@ -113,8 +124,11 @@ impl ObjectSet {
             }
             let ptr = ptr.expect("PANIC");
             let blk = ptr.read_vec(&self.dgs)?;
-            let header =
-                ObjectListHeader::from_bytes(blk[..LIST_HEADER_SIZE].try_into().or(Err(0))?);
+            let header = ObjectListHeader::from_bytes(
+                blk[..LIST_HEADER_SIZE]
+                    .try_into()
+                    .or(Err(AMError::TODO(0)))?,
+            );
             let mut pos = std::mem::size_of::<ObjectListHeader>();
             let idx = header.start_idx;
             if header.n_entries & 0x8000000000000000 != 0 {
@@ -123,12 +137,17 @@ impl ObjectSet {
                 for i in idx..idx + header.n_entries {
                     let mut frags = Vec::new();
                     loop {
-                        if u64::from_le_bytes(blk[pos..pos + 8].try_into().or(Err(0))?) == 0 {
+                        if u64::from_le_bytes(
+                            blk[pos..pos + 8].try_into().or(Err(AMError::TODO(0)))?,
+                        ) == 0
+                        {
                             pos += 8;
                             break;
                         }
                         frags.push(Fragment::from_bytes(
-                            blk[pos..pos + FRAGMENT_SIZE].try_into().or(Err(0))?,
+                            blk[pos..pos + FRAGMENT_SIZE]
+                                .try_into()
+                                .or(Err(AMError::TODO(0)))?,
                         ));
                         pos += FRAGMENT_SIZE;
                     }
@@ -152,8 +171,11 @@ impl ObjectSet {
             }
             let ptr = ptr.expect("PANIC");
             let mut blk = ptr.read_vec(&self.dgs)?;
-            let mut header =
-                ObjectListHeader::from_bytes(blk[..LIST_HEADER_SIZE].try_into().or(Err(0))?);
+            let mut header = ObjectListHeader::from_bytes(
+                blk[..LIST_HEADER_SIZE]
+                    .try_into()
+                    .or(Err(AMError::TODO(0)))?,
+            );
             if header.n_entries & 0x8000000000000000 != 0 {
                 //If the high bit is set, this is an indirect block.
                 todo!();
@@ -165,7 +187,10 @@ impl ObjectSet {
                     while idx < id {
                         //Scan forward until we're at the start of the object to update
                         loop {
-                            if u64::from_le_bytes(blk[pos..pos + 8].try_into().or(Err(0))?) == 0 {
+                            if u64::from_le_bytes(
+                                blk[pos..pos + 8].try_into().or(Err(AMError::TODO(0)))?,
+                            ) == 0
+                            {
                                 pos += 8;
                                 break;
                             }
@@ -191,7 +216,10 @@ impl ObjectSet {
                         let mut i = pos;
                         // Scan forward to the end of the old object
                         loop {
-                            if u64::from_le_bytes(blk[i..i + 8].try_into().or(Err(0))?) == 0 {
+                            if u64::from_le_bytes(
+                                blk[i..i + 8].try_into().or(Err(AMError::TODO(0)))?,
+                            ) == 0
+                            {
                                 i += 8;
                                 break;
                             }
@@ -209,7 +237,9 @@ impl ObjectSet {
                             // Scan forward to the end of the last object in the block
                             while idx < (header.start_idx + header.n_entries) - 1 {
                                 loop {
-                                    if u64::from_le_bytes(blk[j..j + 8].try_into().or(Err(0))?) == 0
+                                    if u64::from_le_bytes(
+                                        blk[j..j + 8].try_into().or(Err(AMError::TODO(0)))?,
+                                    ) == 0
                                     {
                                         j += 8;
                                         break;
@@ -252,7 +282,7 @@ impl ObjectSet {
 
                     blk[..LIST_HEADER_SIZE].copy_from_slice(header.to_bytes());
 
-                    let mut ptr = fs.realloc(ptr)?.ok_or(0)?;
+                    let mut ptr = fs.realloc(ptr)?.ok_or(AMError::TODO(0))?;
                     for _w in parents.windows(2) {
                         todo!();
                     }
@@ -277,7 +307,7 @@ impl ObjectSet {
     /// Gets the size of an object
     #[cfg(feature = "stable")]
     pub fn size_object(&self, id: u64) -> AMResult<u64> {
-        self.get_object(id)?.ok_or(0)?.size()
+        self.get_object(id)?.ok_or(AMError::TODO(0))?.size()
     }
     /// Reads the contents of an object
     #[cfg(feature = "stable")]
@@ -288,7 +318,9 @@ impl ObjectSet {
         data: &mut [u8],
         dgs: &[Option<DiskGroup>],
     ) -> AMResult<u64> {
-        self.get_object(id)?.ok_or(0)?.read(start, data, dgs)
+        self.get_object(id)?
+            .ok_or(AMError::TODO(0))?
+            .read(start, data, dgs)
     }
 }
 
@@ -373,7 +405,7 @@ impl Object {
                 if slice_end > f.size {
                     todo!();
                 } else {
-                    f.pointer = handle.realloc(f.pointer)?.ok_or(0)?;
+                    f.pointer = handle.realloc(f.pointer)?.ok_or(AMError::TODO(0))?;
                     res += f
                         .pointer
                         .write(slice_start.try_into()?, data.len(), dgs, data)?;
