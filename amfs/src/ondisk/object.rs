@@ -497,7 +497,7 @@ impl Fragment {
     /// Initializes a fragment from a slice of bytes
     #[cfg(feature = "stable")]
     pub fn from_bytes(buf: [u8; FRAGMENT_SIZE]) -> Fragment {
-        unsafe { std::ptr::read(buf.as_ptr() as *const _) }
+        unsafe { std::ptr::read_unaligned(buf.as_ptr() as *const _) }
     }
     /// Converts a fragment to a slice of bytes
     #[cfg(feature = "stable")]

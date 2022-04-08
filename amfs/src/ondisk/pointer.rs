@@ -119,7 +119,7 @@ impl AMPointerGlobal {
     ) -> AMResult<usize> {
         //Single whole block writes are atomic
         if start == 0 && size == BLOCK_SIZE {
-            match dgs[self.geo() as usize]
+            match dgs.get(self.geo() as usize).ok_or(AMError::TODO(0))?
                 .as_ref()
                 .ok_or(AMError::TODO(0))?
                 .geo
@@ -128,7 +128,7 @@ impl AMPointerGlobal {
                 GeometryFlavor::Single => dgs[self.geo() as usize]
                     .as_ref()
                     .ok_or(AMError::TODO(0))?
-                    .get_disk(0)
+                    .get_disk(0)?
                     .read_at(self.loc(), data),
                 _ => unimplemented!(), // TODO(#3): Add support for additional geometries
             }
@@ -142,7 +142,7 @@ impl AMPointerGlobal {
                 GeometryFlavor::Single => dgs[self.geo() as usize]
                     .as_ref()
                     .ok_or(AMError::TODO(0))?
-                    .get_disk(0)
+                    .get_disk(0)?
                     .read_at(
                         (usize::try_from(self.loc())? + start / BLOCK_SIZE).try_into()?,
                         data,
@@ -199,7 +199,7 @@ impl AMPointerGlobal {
                 GeometryFlavor::Single => dgs[self.geo() as usize]
                     .as_ref()
                     .ok_or(AMError::TODO(0))?
-                    .get_disk(0)
+                    .get_disk(0)?
                     .write_at(self.loc(), data),
                 _ => unimplemented!(), // TODO(#3): Add support for additional geometries
             }
@@ -213,7 +213,7 @@ impl AMPointerGlobal {
                 GeometryFlavor::Single => dgs[self.geo() as usize]
                     .as_ref()
                     .ok_or(AMError::TODO(0))?
-                    .get_disk(0)
+                    .get_disk(0)?
                     .write_at(
                         (usize::try_from(self.loc())? + start / BLOCK_SIZE).try_into()?,
                         data,

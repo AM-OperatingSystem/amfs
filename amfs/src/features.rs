@@ -48,7 +48,7 @@ impl AMFeatures {
     pub fn bit2set(map: &BitArr!(for 2048)) -> BTreeSet<AMFeatures> {
         let mut res = BTreeSet::new();
         for i in AMFeatures::iter() {
-            if *map.get(i as usize).unwrap() {
+            if *map.get(i as usize).unwrap_or_else(|| panic!("No feature {:?}",i)) {
                 res.insert(i);
             }
         }

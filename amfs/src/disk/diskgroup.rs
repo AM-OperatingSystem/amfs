@@ -60,9 +60,12 @@ impl DiskGroup {
     }
     /// Gets the nth disk
     #[cfg(feature = "stable")]
-    pub fn get_disk(&self, n: u8) -> Disk {
-        assert!(self.geo.device_ids[n as usize] != 0);
-        self.disks[n as usize].clone()
+    pub fn get_disk(&self, n: u8) -> AMResult<Disk> {
+        if self.geo.device_ids[n as usize] != 0 {
+            Ok(self.disks[n as usize].clone())
+        } else {
+            Err(AMErrorFS::DiskID.into())
+        }
     }
     /// Allocates a block
     #[cfg(feature = "unstable")]
