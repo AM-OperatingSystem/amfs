@@ -35,7 +35,26 @@ enum BlockType {
     Error,
 }
 
+impl BlockType {
+    fn kinddump(&self) -> &str {
+        match self {
+            Self::Unused => "Unused",
+            Self::Superblock(_) => "Superblock",
+            Self::Geometry(_) => "Geometry",
+            Self::FSGroup(_) => "FSGroup",
+            Self::Alloc(_) => "Alloc",
+            Self::AllocList(_) => "AllocList",
+            Self::FreeQueue(_) => "FreeQueue",
+            Self::Objects(_) => "Objects",
+            Self::Error => "Error",
+        }
+    }
+}
+
 fn main() {
+
+    unsafe {amfs::disable_checksums()};
+
     let path = std::env::args().nth(1).unwrap();
     let mut d = DiskFile::open(&path).unwrap();
     let mut dg = DiskGroup::single(Geometry::new(), d.clone(), Allocator::new(0));
@@ -163,6 +182,16 @@ fn main() {
             break;
         }
     }
+
+    for loc in sb_locs {
+        unsafe {
+            types[usize::try_from(loc.loc()).unwrap()] = (
+                BlockType::Superblock(Superblock::read_unchecked(d.clone(), loc).unwrap()),
+                false,
+            );
+        }
+    }
+
     let mut buf = [0; BLOCK_SIZE];
     for (idx, typ) in types.iter().enumerate() {
         d.read_at(idx.try_into().unwrap(), &mut buf).unwrap();
@@ -455,7 +484,9 @@ fn print_superblock(idx: usize, buf: [u8; BLOCK_SIZE], mut s: Superblock, d: &Di
         println!();
     }
 }
-fn print_error(_idx: usize, _buf: [u8; BLOCK_SIZE]) {
+fn print_error(idx: usize, buf: [u8; BLOCK_SIZE]) {
+    println!("Error:");
+    print_hex(idx * BLOCK_SIZE + 0, &buf[0x00..]);
     todo!();
 }
 fn print_hex(idx: usize, data: &[u8]) {
