@@ -371,6 +371,9 @@ impl AMPointer {
     }
     #[cfg(feature = "stable")]
     pub fn validate(&self, target: &[u8]) -> bool {
+        if !crate::CHECKSUMS_ENABLED.load(std::sync::atomic::Ordering::Relaxed) {
+            return true;
+        }
         let mut hasher = Hasher::new();
         hasher.update(target);
         let checksum = hasher.finalize();

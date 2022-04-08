@@ -28,6 +28,8 @@ pub const BLOCK_SIZE: usize = 4096;
 /// The filesystem's signature. Appears at the start of top-level headers.
 pub const SIGNATURE: &[u8; 8] = b"amosAMFS";
 
+use std::sync::atomic::AtomicBool;
+
 use self::fs::AMFS;
 pub use self::{
     disk::{Disk, DiskFile, DiskGroup, DiskMem},
@@ -66,4 +68,13 @@ pub unsafe fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] {
 pub unsafe fn u8_slice_as_any<T: Sized + endian_codec::DecodeLE>(p: &[u8]) -> T {
     assert!(p.len() >= ::std::mem::size_of::<T>());
     T::decode_from_le_bytes(&p[..::std::mem::size_of::<T>()])
+}
+
+static CHECKSUMS_ENABLED: AtomicBool = AtomicBool::new(true);
+
+/// Disable checksum verification to allow dumping/recovering a broken filesystem
+/// # Safety
+/// It's pretty much never safe to call this.
+pub unsafe fn disable_checksums() {
+    CHECKSUMS_ENABLED.store(false,std::sync::atomic::Ordering::Relaxed)
 }
