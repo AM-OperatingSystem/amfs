@@ -22,7 +22,7 @@ pub struct FSGroup {
     pub objects: AMPointerGlobal,
     directory:   u64,
     txid:        u128,
-    _padding:    [u8; BLOCK_SIZE - 92],
+    _padding:    [u8; BLOCK_SIZE - 88],
 }
 
 #[repr(packed)]
@@ -56,7 +56,7 @@ impl FSGroup {
             objects:    AMPointerGlobal::null(),
             directory:  0,
             txid:       0,
-            _padding:   [0; BLOCK_SIZE - 92],
+            _padding:   [0; BLOCK_SIZE - 88],
         }
     }
     /// Gets this group's transaction ID
