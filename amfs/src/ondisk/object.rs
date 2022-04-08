@@ -4,6 +4,7 @@ use std::{
 };
 
 use amos_std::{error::AMError, AMResult};
+use endian_codec::{PackedSize, DecodeLE};
 
 use crate::{AMPointerGlobal, DiskGroup, AMFS, BLOCK_SIZE};
 
@@ -18,6 +19,8 @@ pub struct ObjectSet {
 }
 
 /// Header for object list
+#[repr(C)]
+#[derive(PackedSize, DecodeLE)]
 pub struct ObjectListHeader {
     /// Index of first object in this list
     pub start_idx: u64,

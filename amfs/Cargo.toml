@@ -22,6 +22,7 @@ amfs-macros = { path = "../amfs-macros" }
 amos-std = { path = "../../amos-std" }
 lazy_static = "1.4.0"
 type-layout = "0.2.0"
+endian_codec = "0.1.1"
 
 [dev-dependencies]
 itertools = "0.10.3"

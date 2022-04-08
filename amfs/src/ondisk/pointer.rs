@@ -5,6 +5,7 @@ use std::{
 
 use amos_std::{error::AMError, AMResult};
 use crc32fast::Hasher;
+use endian_codec::{DecodeLE, PackedSize};
 
 use crate::{Disk, DiskGroup, GeometryFlavor, BLOCK_SIZE};
 
@@ -28,6 +29,16 @@ impl fmt::Display for AMPointerLocal {
 #[repr(C)]
 /// AMFS global pointer. Valid within a volume.
 pub struct AMPointerGlobal(pub(crate) AMPointer);
+
+impl PackedSize for AMPointerGlobal {
+    const PACKED_LEN: usize = AMPointer::PACKED_LEN;
+}
+
+impl DecodeLE for AMPointerGlobal {
+    fn decode_from_le_bytes(bytes: &[u8]) -> Self {
+        AMPointerGlobal(AMPointer::decode_from_le_bytes(bytes))
+    }
+}
 
 impl fmt::Display for AMPointerGlobal {
     #[cfg(feature = "unstable")]
@@ -294,7 +305,7 @@ impl AMPointerLocal {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, PackedSize, DecodeLE)]
 #[repr(C)]
 pub(crate) struct AMPointer {
     location: u64,

@@ -6,6 +6,7 @@ use std::{
 };
 
 use amos_std::{error::AMErrorFS, AMResult};
+use endian_codec::{PackedSize, DecodeLE};
 use type_layout::TypeLayout;
 
 use crate::{AMPointerGlobal, Allocator, DiskGroup, LinkedListGlobal, BLOCK_SIZE};
@@ -26,7 +27,7 @@ pub struct FSGroup {
 
 #[repr(packed)]
 /// A list of allocators.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PackedSize, DecodeLE)]
 pub struct AllocListEntry {
     /// The disk to which the allocator applies
     pub disk_id:   u64,
@@ -36,7 +37,7 @@ pub struct AllocListEntry {
 
 #[repr(C)]
 /// A list of allocators.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PackedSize, DecodeLE)]
 pub struct FreeQueueEntry {
     /// The txid in which the block was freed
     pub txid:  u128,

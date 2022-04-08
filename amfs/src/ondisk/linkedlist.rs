@@ -1,10 +1,12 @@
 use std::convert::TryFrom;
 
 use amos_std::{error::AMErrorFS, AMResult};
+use endian_codec::{DecodeLE, PackedSize};
 
 use crate::{any_as_u8_slice, u8_slice_as_any, AMPointerGlobal, DiskGroup, BLOCK_SIZE};
 
 #[repr(C)]
+#[derive(PackedSize,DecodeLE)]
 pub(crate) struct LLGHeader {
     next:     AMPointerGlobal,
     count:    u64,
@@ -32,7 +34,7 @@ pub trait LinkedListGlobal<T: Sized> {
     ) -> AMResult<AMPointerGlobal>;
 }
 
-impl<T: Copy + std::fmt::Debug> LinkedListGlobal<Vec<T>> for Vec<T> {
+impl<T: Copy + std::fmt::Debug + DecodeLE> LinkedListGlobal<Vec<T>> for Vec<T> {
     #[cfg(feature = "unstable")]
     fn read(dgs: &[Option<DiskGroup>], mut p: AMPointerGlobal) -> AMResult<Vec<T>> {
         let mut res = Vec::new();
@@ -53,7 +55,7 @@ impl<T: Copy + std::fmt::Debug> LinkedListGlobal<Vec<T>> for Vec<T> {
                 unsafe {
                     let addr = std::mem::size_of::<LLGHeader>() + std::mem::size_of::<T>() * i;
                     let ent = u8_slice_as_any::<T>(&buf[addr..]);
-                    res.push(*ent);
+                    res.push(ent);
                 }
             }
         }

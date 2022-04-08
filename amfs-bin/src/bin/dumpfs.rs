@@ -12,7 +12,10 @@ use amfs::{BLOCK_SIZE, SIGNATURE, *};
 use colored::*;
 use strum::IntoEnumIterator;
 
+use endian_codec::{DecodeLE, PackedSize};
+
 #[repr(C)]
+#[derive(PackedSize, DecodeLE)]
 pub(crate) struct LLGHeader {
     next:     AMPointerGlobal,
     count:    u16,
@@ -100,7 +103,7 @@ fn main() {
                         let ptr = unsafe {
                             u8_slice_as_any::<AMPointerGlobal>(&buf[0x28 + i * 24..0x38 + i * 24])
                         };
-                        types[ptr.loc() as usize] = (BlockType::Alloc(*ptr), false)
+                        types[ptr.loc() as usize] = (BlockType::Alloc(ptr), false)
                     }
                     types[idx].1 = true;
                     upd = true;
@@ -234,7 +237,7 @@ fn print_alloclist(idx: usize, buf: [u8; BLOCK_SIZE]) {
             idx * BLOCK_SIZE + 2 + (i * 3) / 2,
             &buf[0x10 * (2 + (i * 3) / 2)..],
             "alloc".to_string(),
-            *ptr,
+            ptr,
         );
         print!(" dev:{:x}", devid);
         println!();
@@ -304,7 +307,7 @@ fn print_free_queue(idx: usize, buf: [u8; BLOCK_SIZE]) {
             idx * BLOCK_SIZE + 2 + i * 2,
             &buf[0x10 * (2 + i * 2)..],
             "block".to_string(),
-            *ptr,
+            ptr,
         );
         println!();
     }
@@ -336,7 +339,7 @@ fn print_objs(idx: usize, buf: [u8; BLOCK_SIZE], _o: ObjectSet, _d: &DiskGroup) 
                 idx * BLOCK_SIZE + blkof + 1,
                 &buf[blkof * 16 + 16..blkof * 16 + 32],
                 "data".to_string(),
-                *ptr,
+                ptr,
             );
             println!();
             pos += std::mem::size_of::<Fragment>();

@@ -63,7 +63,7 @@ pub unsafe fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] {
 /// # Safety
 /// This function is only safe for types with stable ABI representations. In practice, this means only structs with repr(C)
 #[cfg(feature = "stable")]
-pub unsafe fn u8_slice_as_any<T: Sized>(p: &[u8]) -> &T {
+pub unsafe fn u8_slice_as_any<T: Sized + endian_codec::DecodeLE>(p: &[u8]) -> T {
     assert!(p.len() >= ::std::mem::size_of::<T>());
-    &*((p.as_ptr() as *const u8) as *const T)
+    T::decode_from_le_bytes(&p[..::std::mem::size_of::<T>()])
 }
