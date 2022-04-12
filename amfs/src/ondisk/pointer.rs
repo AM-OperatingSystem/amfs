@@ -114,18 +114,20 @@ impl AMPointerGlobal {
         self,
         start: usize,
         size: usize,
-        dgs: &[Option<DiskGroup>],
+        diskgroups: &[Option<DiskGroup>],
         data: &mut [u8],
     ) -> AMResult<usize> {
         //Single whole block writes are atomic
         if start == 0 && size == BLOCK_SIZE {
-            match dgs.get(self.geo() as usize).ok_or(AMError::TODO(0))?
+            match diskgroups
+                .get(self.geo() as usize)
+                .ok_or(AMError::TODO(0))?
                 .as_ref()
                 .ok_or(AMError::TODO(0))?
                 .geo
                 .flavor()
             {
-                GeometryFlavor::Single => dgs[self.geo() as usize]
+                GeometryFlavor::Single => diskgroups[self.geo() as usize]
                     .as_ref()
                     .ok_or(AMError::TODO(0))?
                     .get_disk(0)?
@@ -133,13 +135,13 @@ impl AMPointerGlobal {
                 _ => unimplemented!(), // TODO(#3): Add support for additional geometries
             }
         } else if start % BLOCK_SIZE == 0 && size == BLOCK_SIZE {
-            match dgs[self.geo() as usize]
+            match diskgroups[self.geo() as usize]
                 .as_ref()
                 .ok_or(AMError::TODO(0))?
                 .geo
                 .flavor()
             {
-                GeometryFlavor::Single => dgs[self.geo() as usize]
+                GeometryFlavor::Single => diskgroups[self.geo() as usize]
                     .as_ref()
                     .ok_or(AMError::TODO(0))?
                     .get_disk(0)?
@@ -155,10 +157,10 @@ impl AMPointerGlobal {
             let start_offs = start % BLOCK_SIZE;
             let end_block = (start + size) / BLOCK_SIZE;
             let end_offs = (start + size) % BLOCK_SIZE;
-            self.read(start_block * BLOCK_SIZE, BLOCK_SIZE, dgs, &mut buf)?;
+            self.read(start_block * BLOCK_SIZE, BLOCK_SIZE, diskgroups, &mut buf)?;
             if start_block == end_block {
                 let mut buf = [0u8; BLOCK_SIZE];
-                self.read(start_block * BLOCK_SIZE, BLOCK_SIZE, dgs, &mut buf)?;
+                self.read(start_block * BLOCK_SIZE, BLOCK_SIZE, diskgroups, &mut buf)?;
                 data.clone_from_slice(&buf[start_offs..end_offs]);
                 Ok(size)
             } else {
@@ -168,13 +170,13 @@ impl AMPointerGlobal {
     }
     /// Reads from the referenced location
     #[cfg(feature = "stable")]
-    pub fn read_vec(self, dgs: &[Option<DiskGroup>]) -> AMResult<Vec<u8>> {
+    pub fn read_vec(self, diskgroups: &[Option<DiskGroup>]) -> AMResult<Vec<u8>> {
         let mut res = Vec::new();
         res.resize(usize::from(self.0.len) * BLOCK_SIZE, 0);
         self.read(
             0,
             usize::from(self.0.len) * BLOCK_SIZE,
-            dgs,
+            diskgroups,
             res.as_mut_slice(),
         )?;
         Ok(res)
@@ -185,18 +187,18 @@ impl AMPointerGlobal {
         self,
         start: usize,
         size: usize,
-        dgs: &[Option<DiskGroup>],
+        diskgroups: &[Option<DiskGroup>],
         data: &[u8],
     ) -> AMResult<usize> {
         //Single whole block writes are atomic
         if start == 0 && size == BLOCK_SIZE {
-            match dgs[self.geo() as usize]
+            match diskgroups[self.geo() as usize]
                 .as_ref()
                 .ok_or(AMError::TODO(0))?
                 .geo
                 .flavor()
             {
-                GeometryFlavor::Single => dgs[self.geo() as usize]
+                GeometryFlavor::Single => diskgroups[self.geo() as usize]
                     .as_ref()
                     .ok_or(AMError::TODO(0))?
                     .get_disk(0)?
@@ -204,13 +206,13 @@ impl AMPointerGlobal {
                 _ => unimplemented!(), // TODO(#3): Add support for additional geometries
             }
         } else if start % BLOCK_SIZE == 0 && size == BLOCK_SIZE {
-            match dgs[self.geo() as usize]
+            match diskgroups[self.geo() as usize]
                 .as_ref()
                 .ok_or(AMError::TODO(0))?
                 .geo
                 .flavor()
             {
-                GeometryFlavor::Single => dgs[self.geo() as usize]
+                GeometryFlavor::Single => diskgroups[self.geo() as usize]
                     .as_ref()
                     .ok_or(AMError::TODO(0))?
                     .get_disk(0)?
@@ -226,10 +228,10 @@ impl AMPointerGlobal {
             let start_offs = start % BLOCK_SIZE;
             let end_block = (start + size) / BLOCK_SIZE;
             let end_offs = (start + size) % BLOCK_SIZE;
-            self.read(start_block * BLOCK_SIZE, BLOCK_SIZE, dgs, &mut buf)?;
+            self.read(start_block * BLOCK_SIZE, BLOCK_SIZE, diskgroups, &mut buf)?;
             if start_block == end_block {
                 buf[start_offs..end_offs].clone_from_slice(data);
-                self.write(start_block * BLOCK_SIZE, BLOCK_SIZE, dgs, &buf)?;
+                self.write(start_block * BLOCK_SIZE, BLOCK_SIZE, diskgroups, &buf)?;
                 Ok(size)
             } else {
                 todo!();

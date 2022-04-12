@@ -179,7 +179,7 @@ pub fn fsck_single_scan(d: Disk) -> Result<(), FSCKError> {
             return_error!(loc, FSCKErrorKind::InvalidGeometry);
         }
     }
-    let dgs = DiskGroup::from_geo(
+    let diskgroups = DiskGroup::from_geo(
         d_geo.expect("No intact geometry"),
         &[d_id.expect("No intact superblock")],
         &[d.clone()],
@@ -199,7 +199,7 @@ pub fn fsck_single_scan(d: Disk) -> Result<(), FSCKError> {
             warn!("We don't have a disk for {}", loc);
         }
         info!("\tVerifying rootnode at {}", loc);
-        let root = crate::FSGroup::read(&[Some(dgs.clone())], loc).ok();
+        let root = crate::FSGroup::read(&[Some(diskgroups.clone())], loc).ok();
         if let Some(root) = root {
             info!("\t\tOK!");
             alloclist_locs.insert(root.alloc());
@@ -227,7 +227,7 @@ pub fn fsck_single_scan(d: Disk) -> Result<(), FSCKError> {
         info!("\tVerifying objectset at {}", loc);
         let objs = crate::ObjectSet::read(
             vec![
-                Some(dgs.clone()),
+                Some(diskgroups.clone()),
                 None,
                 None,
                 None,
@@ -262,7 +262,11 @@ pub fn fsck_single_scan(d: Disk) -> Result<(), FSCKError> {
     for (id, obj) in objects {
         for frag in obj.frags() {
             info!("\tVerifying object {}, fragment at {}", id, frag.pointer);
-            if frag.pointer.validate(&[Some(dgs.clone())]).expect("E") {
+            if frag
+                .pointer
+                .validate(&[Some(diskgroups.clone())])
+                .expect("E")
+            {
                 info!("\t\tOK!");
             } else {
                 warn!("\t\tNot OK!");
@@ -276,7 +280,7 @@ pub fn fsck_single_scan(d: Disk) -> Result<(), FSCKError> {
         info!("\tVerifying alloclist at {}", loc);
         let allocs: Option<Vec<AllocListEntry>> = <Vec<AllocListEntry> as LinkedListGlobal<
             Vec<AllocListEntry>,
-        >>::read(&[Some(dgs.clone())], loc)
+        >>::read(&[Some(diskgroups.clone())], loc)
         .ok();
         if let Some(allocs) = allocs {
             info!("\t\tOK!");
@@ -294,7 +298,7 @@ pub fn fsck_single_scan(d: Disk) -> Result<(), FSCKError> {
         info!("\tVerifying freequeue at {}", loc);
         let queue: Option<Vec<FreeQueueEntry>> = <Vec<FreeQueueEntry> as LinkedListGlobal<
             Vec<FreeQueueEntry>,
-        >>::read(&[Some(dgs.clone())], loc)
+        >>::read(&[Some(diskgroups.clone())], loc)
         .ok();
         if let Some(queue) = queue {
             for e in queue {
@@ -311,7 +315,7 @@ pub fn fsck_single_scan(d: Disk) -> Result<(), FSCKError> {
     let mut allocs = Vec::new();
     for loc in alloc_locs {
         info!("\tVerifying allocator at {}", loc);
-        let alloc = Allocator::read(&[Some(dgs.clone())], loc).ok();
+        let alloc = Allocator::read(&[Some(diskgroups.clone())], loc).ok();
         if let Some(alloc) = alloc {
             info!("\t\tOK!");
             allocs.push(alloc);

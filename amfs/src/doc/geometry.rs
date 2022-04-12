@@ -8,7 +8,7 @@
 //!
 //! Each pointer stores the index into the geometry table of the geometry to be used when calculating its location on disk.
 //!
-//! When changing geometries, the new geometry is stored into a free slot in the gemoetry table,
+//! When changing geometries, the new geometry is stored into a free slot in the geometry table,
 //! and the active geometry is updated accordingly.
 //!
 //! Newly allocated blocks are now stored according to the new geometry.

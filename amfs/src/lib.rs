@@ -47,7 +47,7 @@ mod ondisk;
 /// Functions useful for testing
 pub mod test;
 
-/// Implementation for several utilites: fsck,mkfs,etc...
+/// Implementation for several utilities: fsck,mkfs,etc...
 pub mod operations;
 
 /// Documentation-only module
@@ -76,5 +76,5 @@ static CHECKSUMS_ENABLED: AtomicBool = AtomicBool::new(true);
 /// # Safety
 /// It's pretty much never safe to call this.
 pub unsafe fn disable_checksums() {
-    CHECKSUMS_ENABLED.store(false,std::sync::atomic::Ordering::Relaxed)
+    CHECKSUMS_ENABLED.store(false, std::sync::atomic::Ordering::Relaxed)
 }

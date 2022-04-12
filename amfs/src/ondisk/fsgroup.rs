@@ -6,7 +6,7 @@ use std::{
 };
 
 use amos_std::{error::AMErrorFS, AMResult};
-use endian_codec::{PackedSize, DecodeLE};
+use endian_codec::{DecodeLE, PackedSize};
 use type_layout::TypeLayout;
 
 use crate::{AMPointerGlobal, Allocator, DiskGroup, LinkedListGlobal, BLOCK_SIZE};
@@ -91,32 +91,40 @@ impl FSGroup {
     }
     /// Reads a FSGroup from the disk group
     #[cfg(feature = "unstable")]
-    pub fn read(dgs: &[Option<DiskGroup>], ptr: AMPointerGlobal) -> AMResult<FSGroup> {
+    pub fn read(diskgroups: &[Option<DiskGroup>], ptr: AMPointerGlobal) -> AMResult<FSGroup> {
         if ptr.is_null() {
             return Err(AMErrorFS::NullPointer.into());
         }
 
         let mut res: FSGroup = FSGroup::new();
-        ptr.read(0, BLOCK_SIZE, dgs, &mut res)?;
-        assert_or_err!(ptr.validate(dgs)?, AMErrorFS::Checksum);
+        ptr.read(0, BLOCK_SIZE, diskgroups, &mut res)?;
+        assert_or_err!(ptr.validate(diskgroups)?, AMErrorFS::Checksum);
         Ok(res)
     }
     /// Writes a FSGroup to the disk group
     #[cfg(feature = "unstable")]
-    pub fn write(&self, dgs: &[Option<DiskGroup>], ptr: &mut AMPointerGlobal) -> AMResult<()> {
-        ptr.write(0, BLOCK_SIZE, dgs, self)?;
-        ptr.update(dgs)?;
+    pub fn write(
+        &self,
+        diskgroups: &[Option<DiskGroup>],
+        ptr: &mut AMPointerGlobal,
+    ) -> AMResult<()> {
+        ptr.write(0, BLOCK_SIZE, diskgroups, self)?;
+        ptr.update(diskgroups)?;
         Ok(())
     }
     /// Fetches the allocator object for each disk
     #[cfg(feature = "unstable")]
-    pub fn get_allocators(&self, dgs: &[Option<DiskGroup>]) -> AMResult<BTreeMap<u64, Allocator>> {
-        let allocs: Vec<AllocListEntry> =
-            <Vec<AllocListEntry> as LinkedListGlobal<Vec<AllocListEntry>>>::read(dgs, self.alloc)?;
+    pub fn get_allocators(
+        &self,
+        diskgroups: &[Option<DiskGroup>],
+    ) -> AMResult<BTreeMap<u64, Allocator>> {
+        let allocs: Vec<AllocListEntry> = <Vec<AllocListEntry> as LinkedListGlobal<
+            Vec<AllocListEntry>,
+        >>::read(diskgroups, self.alloc)?;
         let mut res = BTreeMap::new();
         for a in allocs {
             debug!("Loaded allocator for disk {:x}", { a.disk_id });
-            res.insert(a.disk_id, Allocator::read(dgs, a.allocator)?);
+            res.insert(a.disk_id, Allocator::read(diskgroups, a.allocator)?);
         }
         Ok(res)
     }
@@ -124,11 +132,11 @@ impl FSGroup {
     #[cfg(feature = "unstable")]
     pub fn get_free_queue(
         &self,
-        dgs: &[Option<DiskGroup>],
+        diskgroups: &[Option<DiskGroup>],
     ) -> AMResult<BTreeMap<u128, Vec<AMPointerGlobal>>> {
         let queue: Vec<FreeQueueEntry> = <Vec<FreeQueueEntry> as LinkedListGlobal<
             Vec<FreeQueueEntry>,
-        >>::read(dgs, self.free_queue)?;
+        >>::read(diskgroups, self.free_queue)?;
         let mut res = BTreeMap::new();
         for e in queue {
             res.entry(e.txid).or_insert_with(Vec::new).push(e.block);
@@ -139,7 +147,7 @@ impl FSGroup {
     #[cfg(feature = "unstable")]
     pub fn write_free_queue(
         &mut self,
-        dgs: &[Option<DiskGroup>],
+        diskgroups: &[Option<DiskGroup>],
         queue: &BTreeMap<u128, Vec<AMPointerGlobal>>,
     ) -> AMResult<()> {
         let mut res = Vec::new();
@@ -151,32 +159,32 @@ impl FSGroup {
                 });
             }
         }
-        self.free_queue = LinkedListGlobal::write(&res, dgs, 0)?;
+        self.free_queue = LinkedListGlobal::write(&res, diskgroups, 0)?;
         Ok(())
     }
     /// Writes out the allocator object for each disk
     #[cfg(feature = "unstable")]
     pub fn write_allocators(
         &mut self,
-        dgs: &mut [Option<DiskGroup>],
+        diskgroups: &mut [Option<DiskGroup>],
         ad: &mut BTreeMap<u64, Allocator>,
     ) -> AMResult<()> {
         let alloc_blocks = ad
             .iter_mut()
-            .map(|(k, v)| Ok((*k, v.prealloc(dgs, 0)?)))
+            .map(|(k, v)| Ok((*k, v.prealloc(diskgroups, 0)?)))
             .collect::<AMResult<BTreeMap<u64, Vec<AMPointerGlobal>>>>()?;
         let allocs: Vec<AllocListEntry> = Vec::new();
-        let llg_blocks = LinkedListGlobal::prealloc(&allocs, alloc_blocks.len(), dgs, 0)?;
+        let llg_blocks = LinkedListGlobal::prealloc(&allocs, alloc_blocks.len(), diskgroups, 0)?;
         let allocs = ad
             .iter_mut()
             .map(|(k, v)| {
                 Ok(AllocListEntry {
                     disk_id:   *k,
-                    allocator: v.write_preallocd(dgs, &alloc_blocks[k])?,
+                    allocator: v.write_preallocd(diskgroups, &alloc_blocks[k])?,
                 })
             })
             .collect::<AMResult<Vec<AllocListEntry>>>()?;
-        self.alloc = LinkedListGlobal::write_preallocd(&allocs, dgs, &llg_blocks)?;
+        self.alloc = LinkedListGlobal::write_preallocd(&allocs, diskgroups, &llg_blocks)?;
         Ok(())
     }
     /// Gets the pointer to the objects table

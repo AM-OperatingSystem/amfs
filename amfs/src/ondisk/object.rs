@@ -4,7 +4,7 @@ use std::{
 };
 
 use amos_std::{error::AMError, AMResult};
-use endian_codec::{PackedSize, DecodeLE};
+use endian_codec::{DecodeLE, PackedSize};
 
 use crate::{AMPointerGlobal, DiskGroup, AMFS, BLOCK_SIZE};
 
@@ -15,7 +15,7 @@ pub const FRAGMENT_SIZE: usize = 32;
 #[derive(Clone, Debug)]
 pub struct ObjectSet {
     pub(crate) ptr: AMPointerGlobal,
-    dgs:            Vec<Option<DiskGroup>>,
+    diskgroups:     Vec<Option<DiskGroup>>,
 }
 
 /// Header for object list
@@ -49,10 +49,10 @@ impl ObjectListHeader {
 impl ObjectSet {
     /// Creates a new object set handle
     #[cfg(feature = "stable")]
-    pub fn read(dgs: Vec<Option<DiskGroup>>, ptr: AMPointerGlobal) -> ObjectSet {
-        ObjectSet { ptr, dgs }
+    pub fn read(diskgroups: Vec<Option<DiskGroup>>, ptr: AMPointerGlobal) -> ObjectSet {
+        ObjectSet { ptr, diskgroups }
     }
-    /// Checks the existance of an object with a given ID
+    /// Checks the existence of an object with a given ID
     #[cfg(feature = "stable")]
     pub fn exists_object(&self, id: u64) -> AMResult<bool> {
         Ok(self.get_object(id)?.is_some())
@@ -68,7 +68,7 @@ impl ObjectSet {
                 break;
             }
             let ptr = ptr.expect("PANIC");
-            let blk = ptr.read_vec(&self.dgs)?;
+            let blk = ptr.read_vec(&self.diskgroups)?;
             let header = ObjectListHeader::from_bytes(
                 blk[..LIST_HEADER_SIZE]
                     .try_into()
@@ -126,7 +126,7 @@ impl ObjectSet {
                 break;
             }
             let ptr = ptr.expect("PANIC");
-            let blk = ptr.read_vec(&self.dgs)?;
+            let blk = ptr.read_vec(&self.diskgroups)?;
             let header = ObjectListHeader::from_bytes(
                 blk[..LIST_HEADER_SIZE]
                     .try_into()
@@ -173,7 +173,7 @@ impl ObjectSet {
                 break;
             }
             let ptr = ptr.expect("PANIC");
-            let mut blk = ptr.read_vec(&self.dgs)?;
+            let mut blk = ptr.read_vec(&self.diskgroups)?;
             let mut header = ObjectListHeader::from_bytes(
                 blk[..LIST_HEADER_SIZE]
                     .try_into()
@@ -289,8 +289,8 @@ impl ObjectSet {
                     for _w in parents.windows(2) {
                         todo!();
                     }
-                    ptr.write(0, blk.len(), &self.dgs, &blk)?;
-                    ptr.update(&self.dgs)?;
+                    ptr.write(0, blk.len(), &self.diskgroups, &blk)?;
+                    ptr.update(&self.diskgroups)?;
                     res.ptr = ptr;
                     return Ok(res);
                 } else {
@@ -319,11 +319,11 @@ impl ObjectSet {
         id: u64,
         start: u64,
         data: &mut [u8],
-        dgs: &[Option<DiskGroup>],
+        diskgroups: &[Option<DiskGroup>],
     ) -> AMResult<u64> {
         self.get_object(id)?
             .ok_or(AMError::TODO(0))?
-            .read(start, data, dgs)
+            .read(start, data, diskgroups)
     }
 }
 
@@ -348,7 +348,7 @@ impl Object {
     }
     /// Reads the contents of an object from the disk
     #[cfg(feature = "unstable")]
-    fn read(&self, start: u64, data: &mut [u8], dgs: &[Option<DiskGroup>]) -> AMResult<u64> {
+    fn read(&self, start: u64, data: &mut [u8], diskgroups: &[Option<DiskGroup>]) -> AMResult<u64> {
         let mut res = 0;
         let mut frag_start = 0;
         let end = start + u64::try_from(data.len())?;
@@ -382,7 +382,7 @@ impl Object {
                 res += f.pointer.read(
                     frag_read_start.try_into()?,
                     read_len,
-                    dgs,
+                    diskgroups,
                     &mut data[buf_read_start..buf_read_start + read_len],
                 )?;
             }
@@ -397,7 +397,7 @@ impl Object {
         handle: &mut AMFS,
         start: u64,
         data: &[u8],
-        dgs: &[Option<DiskGroup>],
+        diskgroups: &[Option<DiskGroup>],
     ) -> AMResult<u64> {
         let mut res = 0;
         let mut pos = 0;
@@ -409,10 +409,10 @@ impl Object {
                     todo!();
                 } else {
                     f.pointer = handle.realloc(f.pointer)?.ok_or(AMError::TODO(0))?;
-                    res += f
-                        .pointer
-                        .write(slice_start.try_into()?, data.len(), dgs, data)?;
-                    f.pointer.update(dgs)?;
+                    res +=
+                        f.pointer
+                            .write(slice_start.try_into()?, data.len(), diskgroups, data)?;
+                    f.pointer.update(diskgroups)?;
                 }
             }
             pos += f.size;
@@ -424,7 +424,7 @@ impl Object {
         &mut self,
         handle: &mut AMFS,
         size: u64,
-        _dgs: &[Option<DiskGroup>],
+        _diskgroups: &[Option<DiskGroup>],
     ) -> AMResult<()> {
         if self.frags.is_empty() {
             if size == 0 {

@@ -10,9 +10,8 @@ use std::{
 
 use amfs::{BLOCK_SIZE, SIGNATURE, *};
 use colored::*;
-use strum::IntoEnumIterator;
-
 use endian_codec::{DecodeLE, PackedSize};
+use strum::IntoEnumIterator;
 
 #[repr(C)]
 #[derive(PackedSize, DecodeLE)]
@@ -36,7 +35,7 @@ enum BlockType {
 }
 
 impl BlockType {
-    fn kinddump(&self) -> &str {
+    fn kind_dump(&self) -> &str {
         match self {
             Self::Unused => "Unused",
             Self::Superblock(_) => "Superblock",
@@ -52,8 +51,7 @@ impl BlockType {
 }
 
 fn main() {
-
-    unsafe {amfs::disable_checksums()};
+    unsafe { amfs::disable_checksums() };
 
     let path = std::env::args().nth(1).unwrap();
     let mut d = DiskFile::open(&path).unwrap();
@@ -351,9 +349,12 @@ fn print_objs(idx: usize, buf: [u8; BLOCK_SIZE], _o: ObjectSet, _d: &DiskGroup) 
     let mut pos = std::mem::size_of::<ObjectListHeader>();
     for _ in 0..usize::try_from(hdr.n_entries).unwrap() {
         loop {
-            let blkof = pos / 16;
+            let blk_offs = pos / 16;
             let size = u64::from_le_bytes(buf[pos..pos + 8].try_into().unwrap());
-            print_hex(idx * BLOCK_SIZE + blkof, &buf[blkof * 16..blkof * 16 + 16]);
+            print_hex(
+                idx * BLOCK_SIZE + blk_offs,
+                &buf[blk_offs * 16..blk_offs * 16 + 16],
+            );
             print!("size:{} ", size);
             if size == 0 {
                 pos += 8;
@@ -365,8 +366,8 @@ fn print_objs(idx: usize, buf: [u8; BLOCK_SIZE], _o: ObjectSet, _d: &DiskGroup) 
             println!();
             let ptr = unsafe { u8_slice_as_any::<AMPointerGlobal>(&buf[pos + 16..pos + 32]) };
             print_hex_ptr_global(
-                idx * BLOCK_SIZE + blkof + 1,
-                &buf[blkof * 16 + 16..blkof * 16 + 32],
+                idx * BLOCK_SIZE + blk_offs + 1,
+                &buf[blk_offs * 16 + 16..blk_offs * 16 + 32],
                 "data".to_string(),
                 ptr,
             );

@@ -1,5 +1,5 @@
 //!
-//! The superblock is the highest-level data sctructure on each disk in the AMFS array.
+//! The superblock is the highest-level data structure on each disk in the AMFS array.
 //!
 //! There are four copies of the superblock on each disk.
 //!
@@ -26,7 +26,7 @@
 //!
 //! Each superblock contains the device ID of the disk on which it resides.
 //!
-//! Superblocks contain a set of [feature flags](crate::AMFeatures), allowing combatibility tests between the on-disk format and the loaded driver.
+//! Superblocks contain a set of [feature flags](crate::AMFeatures), allowing compatibility tests between the on-disk format and the loaded driver.
 //!
 //! Since superblocks aren't referenced by pointers, they contain a built-in checksum to enable integrity checking.
 //!

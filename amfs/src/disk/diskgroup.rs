@@ -34,11 +34,11 @@ impl DiskGroup {
             if devid == 0 {
                 break;
             }
-            let diskno = devids
+            let disk_no = devids
                 .iter()
                 .position(|r| *r == devid)
-                .ok_or(AMErrorFS::UnknownDevid)?;
-            disks.push(ds[diskno].clone());
+                .ok_or(AMErrorFS::UnknownDevId)?;
+            disks.push(ds[disk_no].clone());
         }
         Ok(DiskGroup {
             geo: g,

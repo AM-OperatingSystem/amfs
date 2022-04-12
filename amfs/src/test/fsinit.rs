@@ -1,11 +1,11 @@
-use amos_std::{AMResult, error::AMError};
+use amos_std::{error::AMError, AMResult};
 use rand::{prelude::StdRng, Rng, SeedableRng};
 
 use crate::{operations::mkfs_single, DiskFile, FSHandle};
 
 pub struct CleanOnDrop<T> {
     contents: T,
-    file: String,
+    file:     String,
 }
 
 impl<T> CleanOnDrop<AMResult<T>> {
@@ -49,6 +49,6 @@ pub fn create_fs() -> CleanOnDrop<AMResult<FSHandle>> {
 
     CleanOnDrop {
         contents: FSHandle::open(&[d]),
-        file: format!("{}.img", id),
+        file:     format!("{}.img", id),
     }
 }

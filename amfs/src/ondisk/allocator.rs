@@ -7,7 +7,7 @@ use amos_std::{
 
 use crate::{AMPointerGlobal, DiskGroup, LinkedListGlobal};
 
-/// A refrence-counted pointer to a disk object
+/// A reference-counted pointer to a disk object
 #[derive(Clone, Debug)]
 pub struct Allocator(pub Rc<RefCell<AllocatorObj>>);
 
@@ -71,35 +71,39 @@ impl Allocator {
     }
     /// Preallocates blocks needed to store the allocator
     #[cfg(feature = "unstable")]
-    pub fn prealloc(&self, dgs: &mut [Option<DiskGroup>], n: u8) -> AMResult<Vec<AMPointerGlobal>> {
-        let ent_each = (crate::BLOCK_SIZE
+    pub fn prealloc(
+        &self,
+        diskgroups: &mut [Option<DiskGroup>],
+        n: u8,
+    ) -> AMResult<Vec<AMPointerGlobal>> {
+        let extents_per_block = (crate::BLOCK_SIZE
             - std::mem::size_of::<crate::ondisk::linkedlist::LLGHeader>())
             / std::mem::size_of::<u64>();
-        let exlen = self.0.borrow().extents.len() + 1;
-        let blks = if exlen == 0 {
+        let extents = self.0.borrow().extents.len() + 1;
+        let blocks = if extents == 0 {
             1
         } else {
-            (exlen + (ent_each - 1)) / ent_each
+            (extents + (extents_per_block - 1)) / extents_per_block
         };
-        let mut res = dgs[n as usize]
+        let mut res = diskgroups[n as usize]
             .as_mut()
             .ok_or(AMErrorFS::NoDiskgroup)?
-            .alloc_many(blks as u64)?;
+            .alloc_many(blocks as u64)?;
         loop {
-            let exlen = self.0.borrow().extents.len();
-            let blks = if exlen == 0 {
+            let extents = self.0.borrow().extents.len();
+            let blocks = if extents == 0 {
                 1
             } else {
-                (exlen + (ent_each - 1)) / ent_each
+                (extents + (extents_per_block - 1)) / extents_per_block
             };
-            if res.len() >= blks {
+            if res.len() >= blocks {
                 break;
             }
             res.append(
-                &mut dgs[n as usize]
+                &mut diskgroups[n as usize]
                     .as_mut()
                     .ok_or(AMErrorFS::NoDiskgroup)?
-                    .alloc_many((blks - res.len()) as u64)?,
+                    .alloc_many((blocks - res.len()) as u64)?,
             )
         }
         Ok(res)
@@ -108,10 +112,10 @@ impl Allocator {
     #[cfg(feature = "unstable")]
     pub fn write_preallocd(
         &mut self,
-        dgs: &mut [Option<DiskGroup>],
-        ptrs: &[AMPointerGlobal],
+        diskgroups: &mut [Option<DiskGroup>],
+        blocks: &[AMPointerGlobal],
     ) -> AMResult<AMPointerGlobal> {
-        self.0.borrow_mut().write_preallocd(dgs, ptrs)
+        self.0.borrow_mut().write_preallocd(diskgroups, blocks)
     }
 }
 
@@ -131,11 +135,11 @@ pub struct Extent {
 impl AllocatorObj {
     #[cfg(feature = "stable")]
     fn new(size: u64) -> Self {
-        let mut exmap = BTreeMap::new();
-        exmap.insert(0, Extent { size, used: false });
+        let mut extent_map = BTreeMap::new();
+        extent_map.insert(0, Extent { size, used: false });
         Self {
             size,
-            extents: exmap,
+            extents: extent_map,
         }
     }
     /// Returns the amount of space free
@@ -298,8 +302,8 @@ impl AllocatorObj {
         Ok(())
     }
     #[cfg(feature = "stable")]
-    fn read(dgs: &[Option<DiskGroup>], ptr: AMPointerGlobal) -> AMResult<Self> {
-        let a = <Vec<u64> as LinkedListGlobal<Vec<u64>>>::read(dgs, ptr)?;
+    fn read(diskgroups: &[Option<DiskGroup>], ptr: AMPointerGlobal) -> AMResult<Self> {
+        let a = <Vec<u64> as LinkedListGlobal<Vec<u64>>>::read(diskgroups, ptr)?;
         let mut start = 0;
         let mut allocator = Self::new(a[0]);
         for l in a[1..].iter() {
@@ -311,7 +315,7 @@ impl AllocatorObj {
         Ok(allocator)
     }
     #[cfg(feature = "unstable")]
-    fn write(&mut self, dgs: &mut [Option<DiskGroup>]) -> AMResult<AMPointerGlobal> {
+    fn write(&mut self, diskgroups: &mut [Option<DiskGroup>]) -> AMResult<AMPointerGlobal> {
         let mut a: Vec<u64> = self
             .extents
             .values()
@@ -324,13 +328,13 @@ impl AllocatorObj {
             })
             .collect();
         a.insert(0, self.size);
-        LinkedListGlobal::write(&a, dgs, 0)
+        LinkedListGlobal::write(&a, diskgroups, 0)
     }
     #[cfg(feature = "unstable")]
     fn write_preallocd(
         &mut self,
-        dgs: &mut [Option<DiskGroup>],
-        ptrs: &[AMPointerGlobal],
+        diskgroups: &mut [Option<DiskGroup>],
+        blocks: &[AMPointerGlobal],
     ) -> AMResult<AMPointerGlobal> {
         let mut a: Vec<u64> = self
             .extents
@@ -344,7 +348,7 @@ impl AllocatorObj {
             })
             .collect();
         a.insert(0, self.size);
-        LinkedListGlobal::write_preallocd(&a, dgs, ptrs)
+        LinkedListGlobal::write_preallocd(&a, diskgroups, blocks)
     }
 }
 

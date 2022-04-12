@@ -6,7 +6,7 @@ use endian_codec::{DecodeLE, PackedSize};
 use crate::{any_as_u8_slice, u8_slice_as_any, AMPointerGlobal, DiskGroup, BLOCK_SIZE};
 
 #[repr(C)]
-#[derive(PackedSize,DecodeLE)]
+#[derive(PackedSize, DecodeLE)]
 pub(crate) struct LLGHeader {
     next:     AMPointerGlobal,
     count:    u64,
@@ -36,7 +36,7 @@ pub trait LinkedListGlobal<T: Sized> {
 
 impl<T: Copy + std::fmt::Debug + DecodeLE> LinkedListGlobal<Vec<T>> for Vec<T> {
     #[cfg(feature = "unstable")]
-    fn read(dgs: &[Option<DiskGroup>], mut p: AMPointerGlobal) -> AMResult<Vec<T>> {
+    fn read(diskgroups: &[Option<DiskGroup>], mut p: AMPointerGlobal) -> AMResult<Vec<T>> {
         let mut res = Vec::new();
         let mut buf = [0; BLOCK_SIZE];
         loop {
@@ -44,8 +44,8 @@ impl<T: Copy + std::fmt::Debug + DecodeLE> LinkedListGlobal<Vec<T>> for Vec<T> {
                 break;
             }
             let count;
-            assert!(p.validate(dgs)?);
-            p.read(0, BLOCK_SIZE, dgs, &mut buf)?;
+            assert!(p.validate(diskgroups)?);
+            p.read(0, BLOCK_SIZE, diskgroups, &mut buf)?;
             unsafe {
                 let hdr = u8_slice_as_any::<LLGHeader>(&buf);
                 p = hdr.next;
@@ -62,21 +62,21 @@ impl<T: Copy + std::fmt::Debug + DecodeLE> LinkedListGlobal<Vec<T>> for Vec<T> {
         Ok(res)
     }
     #[cfg(feature = "unstable")]
-    fn write(&self, dgs: &[Option<DiskGroup>], n: u8) -> AMResult<AMPointerGlobal> {
-        let mut dg = dgs[n as usize].clone();
+    fn write(&self, diskgroups: &[Option<DiskGroup>], n: u8) -> AMResult<AMPointerGlobal> {
+        let mut dg = diskgroups[n as usize].clone();
 
         let ent_each = (BLOCK_SIZE - std::mem::size_of::<LLGHeader>()) / std::mem::size_of::<T>();
-        let blks = if self.is_empty() {
+        let blocks = if self.is_empty() {
             1
         } else {
             (self.len() + (ent_each - 1)) / ent_each
         };
 
-        let mut blockptrs = (0..blks)
+        let mut blockptrs = (0..blocks)
             .map(|_| dg.as_mut().ok_or(AMErrorFS::NoDiskgroup)?.alloc_blocks(1))
             .collect::<AMResult<Vec<AMPointerGlobal>>>()?;
         blockptrs.push(AMPointerGlobal::null());
-        let mut headers: Vec<LLGHeader> = (0..blks)
+        let mut headers: Vec<LLGHeader> = (0..blocks)
             .map(|i| LLGHeader {
                 count:    0,
                 _padding: 0,
@@ -86,42 +86,42 @@ impl<T: Copy + std::fmt::Debug + DecodeLE> LinkedListGlobal<Vec<T>> for Vec<T> {
 
         let mut it = self.iter();
 
-        for i in 0..blks {
+        for i in 0..blocks {
             let mut buf = [0; BLOCK_SIZE];
             let mut pos = std::mem::size_of::<LLGHeader>();
             for _ in 0..ent_each {
-                let npos = pos + std::mem::size_of::<T>();
+                let next_pos = pos + std::mem::size_of::<T>();
                 if let Some(v) = it.next() {
                     headers[i].count += 1;
                     unsafe {
-                        buf[pos..npos].copy_from_slice(any_as_u8_slice(v));
+                        buf[pos..next_pos].copy_from_slice(any_as_u8_slice(v));
                     }
                 } else {
                     break;
                 }
-                pos = npos;
+                pos = next_pos;
             }
             unsafe {
                 buf[0..std::mem::size_of::<LLGHeader>()]
                     .copy_from_slice(any_as_u8_slice(&headers[i]));
             }
-            blockptrs[i].write(0, BLOCK_SIZE, dgs, &buf)?;
+            blockptrs[i].write(0, BLOCK_SIZE, diskgroups, &buf)?;
         }
-        for i in (0..blks).rev() {
-            if i == blks - 1 {
+        for i in (0..blocks).rev() {
+            if i == blocks - 1 {
                 continue;
             }
-            headers[i].next.update(dgs)?;
+            headers[i].next.update(diskgroups)?;
             let mut buf = [0; BLOCK_SIZE];
-            blockptrs[i].read(0, BLOCK_SIZE, dgs, &mut buf)?;
+            blockptrs[i].read(0, BLOCK_SIZE, diskgroups, &mut buf)?;
             unsafe {
                 buf[0..std::mem::size_of::<LLGHeader>()]
                     .copy_from_slice(any_as_u8_slice(&headers[i]));
             }
-            blockptrs[i].write(0, BLOCK_SIZE, dgs, &buf)?;
+            blockptrs[i].write(0, BLOCK_SIZE, diskgroups, &buf)?;
         }
 
-        blockptrs[0].update(dgs)?;
+        blockptrs[0].update(diskgroups)?;
 
         Ok(blockptrs[0])
     }
@@ -129,40 +129,40 @@ impl<T: Copy + std::fmt::Debug + DecodeLE> LinkedListGlobal<Vec<T>> for Vec<T> {
     fn prealloc(
         &self,
         count: usize,
-        dgs: &mut [Option<DiskGroup>],
+        diskgroups: &mut [Option<DiskGroup>],
         n: u8,
     ) -> AMResult<Vec<AMPointerGlobal>> {
         let ent_each =
             (crate::BLOCK_SIZE - std::mem::size_of::<LLGHeader>()) / std::mem::size_of::<T>();
-        let blks = if count == 0 {
+        let blocks = if count == 0 {
             1
         } else {
             (count + (ent_each - 1)) / ent_each
         };
-        let res = dgs[n as usize]
+        let res = diskgroups[n as usize]
             .as_mut()
             .ok_or(AMErrorFS::NoDiskgroup)?
-            .alloc_many(blks as u64);
+            .alloc_many(blocks as u64);
         res
     }
     #[cfg(feature = "unstable")]
     fn write_preallocd(
         &self,
-        dgs: &[Option<DiskGroup>],
-        blks: &[AMPointerGlobal],
+        diskgroups: &[Option<DiskGroup>],
+        blocks: &[AMPointerGlobal],
     ) -> AMResult<AMPointerGlobal> {
-        let mut blockptrs = blks.to_vec();
+        let mut blockptrs = blocks.to_vec();
 
         let ent_each = (BLOCK_SIZE - std::mem::size_of::<LLGHeader>()) / std::mem::size_of::<T>();
-        let blks = if self.is_empty() {
+        let blocks = if self.is_empty() {
             1
         } else {
             (self.len() + (ent_each - 1)) / ent_each
         };
 
-        assert_eq!(blockptrs.len(), blks);
+        assert_eq!(blockptrs.len(), blocks);
         blockptrs.push(AMPointerGlobal::null());
-        let mut headers: Vec<LLGHeader> = (0..blks)
+        let mut headers: Vec<LLGHeader> = (0..blocks)
             .map(|i| LLGHeader {
                 count:    0,
                 _padding: 0,
@@ -172,42 +172,42 @@ impl<T: Copy + std::fmt::Debug + DecodeLE> LinkedListGlobal<Vec<T>> for Vec<T> {
 
         let mut it = self.iter();
 
-        for i in 0..blks {
+        for i in 0..blocks {
             let mut buf = [0; BLOCK_SIZE];
             let mut pos = std::mem::size_of::<LLGHeader>();
             for _ in 0..ent_each {
-                let npos = pos + std::mem::size_of::<T>();
+                let next_pos = pos + std::mem::size_of::<T>();
                 if let Some(v) = it.next() {
                     headers[i].count += 1;
                     unsafe {
-                        buf[pos..npos].copy_from_slice(any_as_u8_slice(v));
+                        buf[pos..next_pos].copy_from_slice(any_as_u8_slice(v));
                     }
                 } else {
                     break;
                 }
-                pos = npos;
+                pos = next_pos;
             }
             unsafe {
                 buf[0..std::mem::size_of::<LLGHeader>()]
                     .copy_from_slice(any_as_u8_slice(&headers[i]));
             }
-            blockptrs[i].write(0, BLOCK_SIZE, dgs, &buf)?;
+            blockptrs[i].write(0, BLOCK_SIZE, diskgroups, &buf)?;
         }
-        for i in (0..blks).rev() {
-            if i == blks - 1 {
+        for i in (0..blocks).rev() {
+            if i == blocks - 1 {
                 continue;
             }
-            headers[i].next.update(dgs)?;
+            headers[i].next.update(diskgroups)?;
             let mut buf = [0; BLOCK_SIZE];
-            blockptrs[i].read(0, BLOCK_SIZE, dgs, &mut buf)?;
+            blockptrs[i].read(0, BLOCK_SIZE, diskgroups, &mut buf)?;
             unsafe {
                 buf[0..std::mem::size_of::<LLGHeader>()]
                     .copy_from_slice(any_as_u8_slice(&headers[i]));
             }
-            blockptrs[i].write(0, BLOCK_SIZE, dgs, &buf)?;
+            blockptrs[i].write(0, BLOCK_SIZE, diskgroups, &buf)?;
         }
 
-        blockptrs[0].update(dgs)?;
+        blockptrs[0].update(diskgroups)?;
 
         Ok(blockptrs[0])
     }
