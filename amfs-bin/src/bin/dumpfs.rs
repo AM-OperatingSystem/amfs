@@ -263,24 +263,18 @@ fn print_alloclist(idx: usize, buf: [u8; BLOCK_SIZE], dgs: &[Option<DiskGroup>])
     print!("count:{}", hdr.count);
     println!();
     for i in 0..usize::from(hdr.count) {
-        let devid = unsafe { u8_slice_as_any::<u64>(&buf[0x20 + i * 24..0x28 + i * 24]) };
-        let ptr = unsafe { u8_slice_as_any::<AMPointerGlobal>(&buf[0x28 + i * 24..0x38 + i * 24]) };
+        let devid = unsafe { u8_slice_as_any::<u64>(&buf[0x20 + i * 24..0x28 + i * 32]) };
+        let ptr = unsafe { u8_slice_as_any::<AMPointerGlobal>(&buf[0x30 + i * 32..0x40 + i * 32]) };
+        print_hex(idx * BLOCK_SIZE + 2 + i * 2, &buf[0x10 * (2 + i * 2)..]);
+        println!("dev:{:x}", devid);
         print_hex_ptr_global(
-            idx * BLOCK_SIZE + 2 + (i * 3) / 2,
-            &buf[0x10 * (2 + (i * 3) / 2)..],
+            idx * BLOCK_SIZE + 3 + i * 2,
+            &buf[0x10 * (3 + i * 2)..],
             "alloc".to_string(),
             ptr,
             dgs,
         );
-        print!(" dev:{:x}", devid);
         println!();
-        if i % 2 == 0 {
-            print_hex(
-                idx * BLOCK_SIZE + 2 + (i * 3) / 2 + 1,
-                &buf[0x10 * (2 + (i * 3) / 2) + 1..],
-            );
-            println!();
-        }
     }
 }
 fn print_alloc(idx: usize, buf: [u8; BLOCK_SIZE], dgs: &[Option<DiskGroup>]) {
@@ -303,12 +297,12 @@ fn print_alloc(idx: usize, buf: [u8; BLOCK_SIZE], dgs: &[Option<DiskGroup>]) {
         }
         let alloc = unsafe { u8_slice_as_any::<u64>(&buf[0x20 + i * 8..0x28 + i * 8]) };
         if i == 0 {
-            print!("length:{} ", alloc);
+            print!("length:{:x} ", alloc);
         } else {
             if alloc & 0x8000000000000000 != 0 {
-                print!("used:{} ", alloc & 0x7FFFFFFFFFFFFFFF);
+                print!("used:{:x} ", alloc & 0x7FFFFFFFFFFFFFFF);
             } else {
-                print!("free:{} ", alloc);
+                print!("free:{:x} ", alloc);
             }
         }
         if i % 2 == 1 {
