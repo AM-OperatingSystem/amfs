@@ -1,6 +1,6 @@
 use amfs::{DiskFile, Superblock};
 use amfs_macros::*;
-use amfs_tests::imagegen::generators::*;
+use amfs_tests::{imagegen::generators::*, test_dump};
 use amos_std::error::AMErrorFS;
 
 #[test_fs]

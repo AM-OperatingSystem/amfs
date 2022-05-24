@@ -41,7 +41,13 @@ pub fn generate_image(input: TokenStream) -> TokenStream {
         let mut sha256 = Sha256::new();
         std::io::copy(&mut file, &mut sha256).unwrap();
         let digest = sha256.finalize();
+
+        test_dump(filename,format!("{:04}.dump", #num_to_gen));
+
         assert_eq!(HEXUPPER.encode(digest.as_ref()),amfs_tests::imagegen::get_checksums()[#num_to_gen]);
+
+
+
     };
     output.into()
 }

@@ -1,6 +1,6 @@
 use amfs::DiskFile;
 use amfs_macros::*;
-use amfs_tests::imagegen::generators::*;
+use amfs_tests::{imagegen::generators::*, test_dump};
 
 #[test_fs]
 fn test_missing_allocator() {

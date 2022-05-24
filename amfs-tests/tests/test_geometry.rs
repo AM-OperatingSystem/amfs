@@ -1,6 +1,6 @@
 use amfs::{DiskFile, Superblock};
 use amfs_macros::*;
-use amfs_tests::imagegen::generators::*;
+use amfs_tests::{imagegen::generators::*, test_dump};
 
 #[test_fs]
 fn test_geometry() {
