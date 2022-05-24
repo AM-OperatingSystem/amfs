@@ -10,6 +10,7 @@ use std::{
 
 use amfs::{BLOCK_SIZE, SIGNATURE, *};
 use colored::*;
+use crc32fast::Hasher;
 use endian_codec::{DecodeLE, PackedSize};
 use strum::IntoEnumIterator;
 
@@ -195,13 +196,13 @@ fn main() {
         d.read_at(idx.try_into().unwrap(), &mut buf).unwrap();
         match typ.0.clone() {
             BlockType::Unused => print_unused(idx, buf),
-            BlockType::Superblock(s) => print_superblock(idx, buf, s, &d),
+            BlockType::Superblock(s) => print_superblock(idx, buf, s, &d, &[Some(dg.clone())]),
             BlockType::Geometry(g) => print_geometry(idx, buf, g, &d),
-            BlockType::FSGroup(f) => print_fsgroup(idx, buf, f, &dg),
-            BlockType::AllocList(_) => print_alloclist(idx, buf),
-            BlockType::Alloc(_) => print_alloc(idx, buf),
-            BlockType::Objects(o) => print_objs(idx, buf, o, &dg),
-            BlockType::FreeQueue(_) => print_free_queue(idx, buf),
+            BlockType::FSGroup(f) => print_fsgroup(idx, buf, f, &[Some(dg.clone())]),
+            BlockType::AllocList(_) => print_alloclist(idx, buf, &[Some(dg.clone())]),
+            BlockType::Alloc(_) => print_alloc(idx, buf, &[Some(dg.clone())]),
+            BlockType::Objects(o) => print_objs(idx, buf, o, &[Some(dg.clone())]),
+            BlockType::FreeQueue(_) => print_free_queue(idx, buf, &[Some(dg.clone())]),
             BlockType::Error => print_error(idx, buf),
         }
     }
@@ -210,13 +211,14 @@ fn main() {
 fn print_unused(_idx: usize, _buf: [u8; BLOCK_SIZE]) {
     //println!("Unused");
 }
-fn print_fsgroup(idx: usize, buf: [u8; BLOCK_SIZE], g: FSGroup, _d: &DiskGroup) {
+fn print_fsgroup(idx: usize, buf: [u8; BLOCK_SIZE], g: FSGroup, dgs: &[Option<DiskGroup>]) {
     println!("FSGroup:");
     print_hex_ptr_global(
         idx * BLOCK_SIZE + 0,
         &buf[0x10 * (0)..],
         "alloc".to_string(),
         g.alloc(),
+        dgs,
     );
     println!();
     print_hex_ptr_global(
@@ -224,9 +226,10 @@ fn print_fsgroup(idx: usize, buf: [u8; BLOCK_SIZE], g: FSGroup, _d: &DiskGroup) 
         &buf[0x10 * (1)..],
         "freequeue".to_string(),
         g.free_queue(),
+        dgs,
     );
     println!();
-    print_hex_ptr_global(
+    print_hex_ptr_global_noverify(
         idx * BLOCK_SIZE + 2,
         &buf[0x10 * (2)..],
         "journal".to_string(),
@@ -238,13 +241,14 @@ fn print_fsgroup(idx: usize, buf: [u8; BLOCK_SIZE], g: FSGroup, _d: &DiskGroup) 
         &buf[0x10 * (3)..],
         "objects".to_string(),
         g.objects(),
+        dgs,
     );
     println!();
     print_hex(idx * BLOCK_SIZE + 4, &buf[0x10 * (4)..]);
     print!("directory:{}", g.directory());
     println!();
 }
-fn print_alloclist(idx: usize, buf: [u8; BLOCK_SIZE]) {
+fn print_alloclist(idx: usize, buf: [u8; BLOCK_SIZE], dgs: &[Option<DiskGroup>]) {
     println!("AllocatorList:");
     let hdr = unsafe { u8_slice_as_any::<LLGHeader>(&buf) };
     print_hex_ptr_global(
@@ -252,6 +256,7 @@ fn print_alloclist(idx: usize, buf: [u8; BLOCK_SIZE]) {
         &buf[0x10 * (0)..],
         "next".to_string(),
         hdr.next,
+        dgs,
     );
     println!();
     print_hex(idx * BLOCK_SIZE + 1, &buf[0x10 * 1..]);
@@ -265,6 +270,7 @@ fn print_alloclist(idx: usize, buf: [u8; BLOCK_SIZE]) {
             &buf[0x10 * (2 + (i * 3) / 2)..],
             "alloc".to_string(),
             ptr,
+            dgs,
         );
         print!(" dev:{:x}", devid);
         println!();
@@ -277,7 +283,7 @@ fn print_alloclist(idx: usize, buf: [u8; BLOCK_SIZE]) {
         }
     }
 }
-fn print_alloc(idx: usize, buf: [u8; BLOCK_SIZE]) {
+fn print_alloc(idx: usize, buf: [u8; BLOCK_SIZE], dgs: &[Option<DiskGroup>]) {
     println!("Allocator:");
     let hdr = unsafe { u8_slice_as_any::<LLGHeader>(&buf) };
     print_hex_ptr_global(
@@ -285,6 +291,7 @@ fn print_alloc(idx: usize, buf: [u8; BLOCK_SIZE]) {
         &buf[0x10 * (0)..],
         "next".to_string(),
         hdr.next,
+        dgs,
     );
     println!();
     print_hex(idx * BLOCK_SIZE + 1, &buf[0x10 * 1..]);
@@ -312,7 +319,7 @@ fn print_alloc(idx: usize, buf: [u8; BLOCK_SIZE]) {
         println!();
     }
 }
-fn print_free_queue(idx: usize, buf: [u8; BLOCK_SIZE]) {
+fn print_free_queue(idx: usize, buf: [u8; BLOCK_SIZE], dgs: &[Option<DiskGroup>]) {
     println!("Free queue:");
     let hdr = unsafe { u8_slice_as_any::<LLGHeader>(&buf) };
     print_hex_ptr_global(
@@ -320,6 +327,7 @@ fn print_free_queue(idx: usize, buf: [u8; BLOCK_SIZE]) {
         &buf[0x10 * (0)..],
         "next".to_string(),
         hdr.next,
+        dgs,
     );
     println!();
     print_hex(idx * BLOCK_SIZE + 1, &buf[0x10 * 1..]);
@@ -335,12 +343,13 @@ fn print_free_queue(idx: usize, buf: [u8; BLOCK_SIZE]) {
             &buf[0x10 * (2 + i * 2)..],
             "block".to_string(),
             ptr,
+            dgs,
         );
         println!();
     }
     println!();
 }
-fn print_objs(idx: usize, buf: [u8; BLOCK_SIZE], _o: ObjectSet, _d: &DiskGroup) {
+fn print_objs(idx: usize, buf: [u8; BLOCK_SIZE], _o: ObjectSet, dgs: &[Option<DiskGroup>]) {
     println!("ObjectSet:");
     let hdr = unsafe { u8_slice_as_any::<ObjectListHeader>(&buf) };
     print_hex(idx * BLOCK_SIZE, &buf[0..]);
@@ -370,6 +379,7 @@ fn print_objs(idx: usize, buf: [u8; BLOCK_SIZE], _o: ObjectSet, _d: &DiskGroup) 
                 &buf[blk_offs * 16 + 16..blk_offs * 16 + 32],
                 "data".to_string(),
                 ptr,
+                dgs,
             );
             println!();
             pos += std::mem::size_of::<Fragment>();
@@ -395,7 +405,13 @@ fn print_geometry(idx: usize, buf: [u8; BLOCK_SIZE], g: Geometry, _d: &Disk) {
     print!("{:?}", g.flavor);
     println!();
 }
-fn print_superblock(idx: usize, buf: [u8; BLOCK_SIZE], mut s: Superblock, d: &Disk) {
+fn print_superblock(
+    idx: usize,
+    buf: [u8; BLOCK_SIZE],
+    mut s: Superblock,
+    d: &Disk,
+    dgs: &[Option<DiskGroup>],
+) {
     println!("Superblock:");
     print_hex(idx * BLOCK_SIZE + 0, &buf[0x00..]);
     if buf[0..8] == *SIGNATURE {
@@ -481,6 +497,7 @@ fn print_superblock(idx: usize, buf: [u8; BLOCK_SIZE], mut s: Superblock, d: &Di
             &buf[0x10 * (128 + i)..],
             format!("root{}", i),
             s.rootnodes(i),
+            dgs,
         );
         println!();
     }
@@ -515,9 +532,44 @@ fn print_hex_ptr_local(idx: usize, data: &[u8], name: String, p: AMPointerLocal,
     print!("| ");
     print!("{}:{:08x}", name, p.loc());
 }
-fn print_hex_ptr_global(idx: usize, data: &[u8], name: String, p: AMPointerGlobal) {
+fn print_hex_ptr_global(
+    idx: usize,
+    data: &[u8],
+    name: String,
+    p: AMPointerGlobal,
+    dgs: &[Option<DiskGroup>],
+) {
     print!("\t{:06x} : ", idx * 0x10);
-    for i in 0..16 {
+    for i in 0..8 {
+        print!("{:02x} ", data[i]);
+    }
+    for i in 8..12 {
+        if p.validate(dgs).unwrap() {
+            print!("{}", format!("{:02x} ", data[i]).green());
+        } else {
+            print!("{}", format!("{:02x} ", data[i]).red());
+        }
+    }
+    for i in 12..16 {
+        print!("{:02x} ", data[i]);
+    }
+    print!("| ");
+    if p.is_null() {
+        print!("{}:NULL", name);
+    } else {
+        print!("{}:{},{},{:08x}", name, p.geo(), p.dev(), p.loc());
+    }
+}
+
+fn print_hex_ptr_global_noverify(idx: usize, data: &[u8], name: String, p: AMPointerGlobal) {
+    print!("\t{:06x} : ", idx * 0x10);
+    for i in 0..8 {
+        print!("{:02x} ", data[i]);
+    }
+    for i in 8..12 {
+        print!("{}", format!("{:02x} ", data[i]).truecolor(128, 128, 128));
+    }
+    for i in 12..16 {
         print!("{:02x} ", data[i]);
     }
     print!("| ");
