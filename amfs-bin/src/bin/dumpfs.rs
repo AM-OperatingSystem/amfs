@@ -118,7 +118,7 @@ fn main() {
                     }
                     for i in 0..usize::from(hdr.count) {
                         let ptr = unsafe {
-                            u8_slice_as_any::<AMPointerGlobal>(&buf[0x28 + i * 24..0x38 + i * 24])
+                            u8_slice_as_any::<AMPointerGlobal>(&buf[0x30 + i * 32..0x40 + i * 32])
                         };
                         types[ptr.loc() as usize] = (BlockType::Alloc(ptr), false)
                     }

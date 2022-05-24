@@ -31,8 +31,20 @@ pub struct FSGroup {
 pub struct AllocListEntry {
     /// The disk to which the allocator applies
     pub disk_id:   u64,
+    _padding:      u64,
     /// A pointer to the allocator
     pub allocator: AMPointerGlobal,
+}
+
+impl AllocListEntry {
+    /// Create an ALE from a disk ID and a pointer to an allocator
+    pub fn new(disk_id: u64, allocator: AMPointerGlobal) -> Self {
+        Self {
+            disk_id,
+            _padding: 0,
+            allocator,
+        }
+    }
 }
 
 #[repr(C)]
@@ -180,6 +192,7 @@ impl FSGroup {
             .map(|(k, v)| {
                 Ok(AllocListEntry {
                     disk_id:   *k,
+                    _padding:  0,
                     allocator: v.write_preallocd(diskgroups, &alloc_blocks[k])?,
                 })
             })
@@ -224,7 +237,7 @@ fn size_test_group() {
 
 #[test]
 fn size_test_ale() {
-    assert_eq!(mem::size_of::<AllocListEntry>(), 24);
+    assert_eq!(mem::size_of::<AllocListEntry>(), 32);
 }
 
 #[test]
