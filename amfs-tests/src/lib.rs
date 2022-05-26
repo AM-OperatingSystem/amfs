@@ -6,7 +6,7 @@ pub mod imagegen;
 
 pub fn test_dump(input: String, output: String) {
 
-    let dump_result = std::process::Command::new("dumpfs")
+    let dump_result = std::process::Command::new("/tmp/bin/dumpfs")
         .arg(&input)
         .output()
         .unwrap()
