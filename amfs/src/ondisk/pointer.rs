@@ -65,6 +65,9 @@ impl AMPointerGlobal {
     /// Validates a pointer against a block on-disk.
     #[cfg(feature = "unstable")]
     pub fn validate(&self, d: &[Option<DiskGroup>]) -> AMResult<bool> {
+        if self.is_null() {
+            return Ok(false);
+        }
         assert_eq!(self.0.len, 1);
         let mut buf = [0; BLOCK_SIZE];
         self.read(0, BLOCK_SIZE, d, &mut buf)?;
