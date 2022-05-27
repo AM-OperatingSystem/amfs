@@ -325,7 +325,7 @@ fn print_free_queue(idx: usize, buf: [u8; BLOCK_SIZE], dgs: &[Option<DiskGroup>]
     );
     println!();
     print_hex(idx * BLOCK_SIZE + 1, &buf[0x10 * 1..]);
-    print!("count:{}", hdr.count);
+    print!("count:{:x}", hdr.count);
     println!();
     for i in 0..usize::from(hdr.count) {
         print_hex(idx * BLOCK_SIZE + 2 + i * 2, &buf[0x10 * (2 + i * 2)..]);
@@ -358,14 +358,14 @@ fn print_objs(idx: usize, buf: [u8; BLOCK_SIZE], _o: ObjectSet, dgs: &[Option<Di
                 idx * BLOCK_SIZE + blk_offs,
                 &buf[blk_offs * 16..blk_offs * 16 + 16],
             );
-            print!("size:{} ", size);
+            print!("size:{:x} ", size);
             if size == 0 {
                 pos += 8;
                 println!();
                 break;
             }
             let offset = u64::from_le_bytes(buf[pos + 8..pos + 16].try_into().unwrap());
-            print!("offs:{} ", offset);
+            print!("offs:{:x} ", offset);
             println!();
             let ptr = unsafe { u8_slice_as_any::<AMPointerGlobal>(&buf[pos + 16..pos + 32]) };
             print_hex_ptr_global(
