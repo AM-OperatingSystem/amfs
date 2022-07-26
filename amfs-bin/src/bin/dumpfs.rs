@@ -22,6 +22,15 @@ pub(crate) struct LLGHeader {
     _padding: u64,
 }
 
+#[repr(C)]
+#[derive(PackedSize, DecodeLE)]
+pub struct JournalHeader {
+    prev:     AMPointerGlobal,
+    count:    u64,
+    checksum: u32,
+    _padding: u32,
+}
+
 #[derive(Debug, Clone)]
 enum BlockType {
     Unused,
@@ -31,6 +40,7 @@ enum BlockType {
     Alloc(AMPointerGlobal),
     AllocList(AMPointerGlobal),
     FreeQueue(AMPointerGlobal),
+    Journal(AMPointerGlobal),
     Objects(ObjectSet),
     Error,
 }
@@ -122,6 +132,10 @@ fn main() {
                     types[idx].1 = true;
                     upd = true;
                 }
+                BlockType::Journal(_) => {
+                    types[idx].1 = true;
+                    upd = true;
+                }
                 BlockType::FSGroup(f) => {
                     if !f.alloc().is_null() {
                         types[f.alloc().loc() as usize] = (BlockType::AllocList(f.alloc()), false)
@@ -156,6 +170,9 @@ fn main() {
                         types[f.free_queue().loc() as usize] =
                             (BlockType::FreeQueue(f.free_queue()), false)
                     }
+                    if !f.journal().is_null() {
+                        types[f.journal().loc() as usize] = (BlockType::Journal(f.journal()), false)
+                    }
                     types[idx].1 = true;
                     upd = true;
                 }
@@ -187,6 +204,7 @@ fn main() {
             BlockType::Alloc(_) => print_alloc(idx, buf, &[Some(dg.clone())]),
             BlockType::Objects(o) => print_objs(idx, buf, o, &[Some(dg.clone())]),
             BlockType::FreeQueue(_) => print_free_queue(idx, buf, &[Some(dg.clone())]),
+            BlockType::Journal(_) => print_journal(idx, buf, &[Some(dg.clone())]),
             BlockType::Error => print_error(idx, buf),
         }
     }
@@ -327,6 +345,55 @@ fn print_free_queue(idx: usize, buf: [u8; BLOCK_SIZE], dgs: &[Option<DiskGroup>]
     }
     println!();
 }
+
+fn print_journal(idx: usize, buf: [u8; BLOCK_SIZE], dgs: &[Option<DiskGroup>]) {
+    println!("Journal:");
+    let hdr = unsafe { u8_slice_as_any::<JournalHeader>(&buf) };
+    print_hex_ptr_global(
+        idx * BLOCK_SIZE,
+        &buf[..],
+        "prev".to_string(),
+        hdr.prev,
+        dgs,
+    );
+    println!();
+    let mut hasher = Hasher::new();
+    let mut hashbuf = buf.clone();
+    hashbuf[24..28].clone_from_slice(&[0, 0, 0, 0]);
+    hasher.update(&hashbuf);
+    let checksum = hasher.finalize();
+    if checksum == hdr.checksum {
+        print!("\t{:06x} : ", (idx * BLOCK_SIZE + 1) * 0x10);
+        for i in 0..8 {
+            print!("{:02x} ", buf[0x10 * 1 + i]);
+        }
+        for i in 8..12 {
+            print!("{}", format!("{:02x} ", buf[0x10 * 1 + i]).green());
+        }
+        for i in 12..16 {
+            print!("{:02x} ", buf[0x10 * 1 + i]);
+        }
+        print!("| ");
+        print!("count:{:x} ", hdr.count);
+        print!("sum:{} ", format!("{:08x}", hdr.checksum).green())
+    } else {
+        print!("\t{:06x} : ", (idx * BLOCK_SIZE + 1) * 0x10);
+        for i in 0..8 {
+            print!("{:02x} ", buf[0x10 * 1 + i]);
+        }
+        for i in 8..12 {
+            print!("{}", format!("{:02x} ", buf[0x10 * 1 + i]).red());
+        }
+        for i in 12..16 {
+            print!("{:02x} ", buf[0x10 * 1 + i]);
+        }
+        print!("| ");
+        print!("count:{:x} ", hdr.count);
+        print!("sum:{} ", format!("{:08x}", hdr.checksum).red())
+    }
+    println!();
+}
+
 fn print_objs(idx: usize, buf: [u8; BLOCK_SIZE], _o: ObjectSet, dgs: &[Option<DiskGroup>]) {
     println!("ObjectSet:");
     let hdr = unsafe { u8_slice_as_any::<ObjectListHeader>(&buf) };
