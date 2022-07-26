@@ -14,6 +14,16 @@ use crate::{Disk, DiskGroup, GeometryFlavor, BLOCK_SIZE};
 /// AMFS local pointer. Valid within one disk.
 pub struct AMPointerLocal(pub(crate) AMPointer);
 
+impl PackedSize for AMPointerLocal {
+    const PACKED_LEN: usize = AMPointer::PACKED_LEN;
+}
+
+impl DecodeLE for AMPointerLocal {
+    fn decode_from_le_bytes(bytes: &[u8]) -> Self {
+        AMPointerLocal(AMPointer::decode_from_le_bytes(bytes))
+    }
+}
+
 impl fmt::Display for AMPointerLocal {
     #[cfg(feature = "unstable")]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

@@ -35,22 +35,6 @@ enum BlockType {
     Error,
 }
 
-impl BlockType {
-    fn kind_dump(&self) -> &str {
-        match self {
-            Self::Unused => "Unused",
-            Self::Superblock(_) => "Superblock",
-            Self::Geometry(_) => "Geometry",
-            Self::FSGroup(_) => "FSGroup",
-            Self::Alloc(_) => "Alloc",
-            Self::AllocList(_) => "AllocList",
-            Self::FreeQueue(_) => "FreeQueue",
-            Self::Objects(_) => "Objects",
-            Self::Error => "Error",
-        }
-    }
-}
-
 fn main() {
     unsafe { amfs::disable_checksums() };
 

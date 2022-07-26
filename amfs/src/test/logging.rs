@@ -16,7 +16,7 @@ pub fn init_log() {
             encode::pattern::PatternEncoder,
         };
 
-        let encoder = PatternEncoder::new("{h({l:<5})} {t:>25} - {m}{n}");
+        let encoder = PatternEncoder::new("{h({l:>5})} {t:.<25} - {m}{n}");
 
         let stdout = ConsoleAppender::builder()
             .encoder(Box::new(encoder))

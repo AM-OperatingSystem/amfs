@@ -120,13 +120,13 @@ impl Allocator {
 }
 
 /// The filesystem's block allocator
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct AllocatorObj {
     size:    u64,
     extents: BTreeMap<u64, Extent>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Extent {
     pub size: u64,
     pub used: bool,
@@ -305,7 +305,8 @@ impl AllocatorObj {
     fn read(diskgroups: &[Option<DiskGroup>], ptr: AMPointerGlobal) -> AMResult<Self> {
         let a = <Vec<u64> as LinkedListGlobal<Vec<u64>>>::read(diskgroups, ptr)?;
         let mut start = 0;
-        let mut allocator = Self::new(a[0]);
+        let size = *a.first().ok_or(AMErrorFS::NoAllocator)?;
+        let mut allocator = Self::new(size);
         for l in a[1..].iter() {
             let size = l & 0x7FFFFFFFFFFFFFFF;
             let used = (l & 0x8000000000000000) != 0;

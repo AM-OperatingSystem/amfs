@@ -139,11 +139,10 @@ impl<T: Copy + std::fmt::Debug + DecodeLE> LinkedListGlobal<Vec<T>> for Vec<T> {
         } else {
             (count + (ent_each - 1)) / ent_each
         };
-        let res = diskgroups[n as usize]
+        diskgroups[n as usize]
             .as_mut()
             .ok_or(AMErrorFS::NoDiskgroup)?
-            .alloc_many(blocks as u64);
-        res
+            .alloc_many(blocks as u64)
     }
     #[cfg(feature = "unstable")]
     fn write_preallocd(
@@ -248,7 +247,7 @@ fn rw_test_global_base() {
 }
 
 #[test]
-fn size_test() {
+fn size_test_global() {
     use std::mem;
     assert_eq!(mem::size_of::<LLGHeader>(), 32);
 }
